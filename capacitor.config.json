@@ -1,0 +1,10 @@
+{
+  "appId": "com.haavi.cityconnect",
+  "appName": "CityConnect",
+  "webDir": "project/dist",
+  "bundledWebRuntime": false,
+  "server": {
+    "androidScheme": "http",
+    "cleartext": true
+  }
+}
