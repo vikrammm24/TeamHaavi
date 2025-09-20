@@ -1,6 +1,8 @@
 const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
+const fs = require('fs');
+const path = require('path');
 
 // --- IN-MEMORY STORAGE (for demo purposes) ---
 // Replace this with a database when you have proper config
@@ -56,6 +58,31 @@ let polls = [
     closesAt: Date.now() + 7 * 24 * 3600 * 1000
   }
 ];
+// Simple surveys and consultations to enable engagement features
+let surveys = [
+  {
+    id: 'survey-1',
+    question: 'How satisfied are you with street lighting in your area?',
+    options: [
+      { id: 's1', text: 'Very satisfied', count: 5 },
+      { id: 's2', text: 'Somewhat satisfied', count: 9 },
+      { id: 's3', text: 'Needs improvement', count: 14 },
+      { id: 's4', text: 'Poor', count: 6 }
+    ],
+    closesAt: Date.now() + 5 * 24 * 3600 * 1000
+  }
+];
+let consultations = [
+  {
+    id: 'con-1',
+    topic: 'New Park Redevelopment Plan',
+    description: 'Share your feedback on proposed amenities like jogging track, lighting, and play area upgrades.',
+    comments: [
+      { id: 'c1', name: 'John Smith', message: 'Please add more benches and lighting.', timestamp: Date.now() - 7200_000 },
+      { id: 'c2', name: 'Priya', message: 'Include accessible walkways for seniors.', timestamp: Date.now() - 3600_000 }
+    ]
+  }
+];
 let leaderboard = [
   { id: 'u1', user: 'John Smith', points: 1200, badges: ['Reporter', 'Voter'] },
   { id: 'u2', user: 'Maria Garcia', points: 980, badges: ['Contributor'] },
@@ -102,6 +129,18 @@ const PORT = 4000;
 
 expressApp.use(cors());
 expressApp.use(bodyParser.json({ limit: '2mb' }));
+
+// Simple role extraction from headers for demo moderation
+function requireRole(allowedRoles = []) {
+  return (req, res, next) => {
+    const role = String(req.headers['x-role'] || '').toLowerCase();
+    if (!role || (allowedRoles.length && !allowedRoles.includes(role))) {
+      return res.status(403).json({ error: 'Forbidden: insufficient role' });
+    }
+    req.userRole = role;
+    next();
+  };
+}
 
 // Helper functions for in-memory storage
 async function getProfessionals() {
@@ -430,6 +469,86 @@ expressApp.post('/api/polls/:pollId/vote', async (req, res) => {
   }
 });
 
+// --- Engagement: Surveys ---
+expressApp.get('/api/surveys', async (req, res) => {
+  try {
+    res.json(surveys);
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to fetch surveys' });
+  }
+});
+
+expressApp.post('/api/surveys/:surveyId/answer', async (req, res) => {
+  try {
+    const { surveyId } = req.params;
+    const { optionId } = req.body || {};
+    const survey = surveys.find(s => s.id === surveyId);
+    if (!survey) return res.status(404).json({ error: 'Survey not found' });
+    const opt = survey.options.find(o => o.id === optionId);
+    if (!opt) return res.status(400).json({ error: 'Invalid option' });
+    opt.count += 1;
+    res.json({ ok: true, survey });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to submit answer' });
+  }
+});
+
+// --- Engagement: Public Consultations ---
+expressApp.get('/api/consultations', async (req, res) => {
+  try {
+    res.json(consultations);
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to fetch consultations' });
+  }
+});
+
+expressApp.post('/api/consultations/:id/comments', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, message } = req.body || {};
+    if (!message || String(message).trim().length === 0) {
+      return res.status(400).json({ error: 'message is required' });
+    }
+  const con = consultations.find(c => c.id === id);
+    if (!con) return res.status(404).json({ error: 'Consultation not found' });
+    const cmt = { id: generateId('cmt-'), name: name || 'Anonymous', message: String(message).slice(0, 1000), timestamp: Date.now() };
+    con.comments.push(cmt);
+    res.status(201).json(cmt);
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to add comment' });
+  }
+});
+
+// Moderation: flag a comment
+expressApp.post('/api/consultations/:id/comments/:commentId/flag', async (req, res) => {
+  try {
+    const { id, commentId } = req.params;
+    const con = consultations.find(c => c.id === id);
+    if (!con) return res.status(404).json({ error: 'Consultation not found' });
+    const cmt = con.comments.find(cm => cm.id === commentId);
+    if (!cmt) return res.status(404).json({ error: 'Comment not found' });
+    cmt.flagged = true;
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to flag comment' });
+  }
+});
+
+// Moderation: delete a comment
+expressApp.delete('/api/consultations/:id/comments/:commentId', requireRole(['authority','professional']), async (req, res) => {
+  try {
+    const { id, commentId } = req.params;
+    const con = consultations.find(c => c.id === id);
+    if (!con) return res.status(404).json({ error: 'Consultation not found' });
+    const before = con.comments.length;
+    con.comments = con.comments.filter(cm => cm.id !== commentId);
+    if (con.comments.length === before) return res.status(404).json({ error: 'Comment not found' });
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to delete comment' });
+  }
+});
+
 // --- Gamification Leaderboard ---
 expressApp.get('/api/gamification/leaderboard', async (req, res) => {
   try {
@@ -490,7 +609,48 @@ expressApp.get('/api/sentiment', async (req, res) => {
 
 // --- Multilingual Knowledge-Based Assistant ---
 // Simple extensible knowledge base with patterns -> answers in multiple languages
-const ASSISTANT_LANGS = ['en','hi','es','mr','te'];
+const ASSISTANT_LANGS = ['en','hi','es','mr','te','fr'];
+
+// External Knowledge Base support (JSON file), optional
+const KB_DIR = path.join(__dirname, 'assistant');
+const KB_PATH = path.join(KB_DIR, 'kb.json');
+const UNKNOWN_LOG = path.join(KB_DIR, 'unknown.log');
+let externalKB = [];
+
+function ensureKbDir() {
+  try { if (!fs.existsSync(KB_DIR)) fs.mkdirSync(KB_DIR, { recursive: true }); } catch {}
+}
+
+function loadExternalKB() {
+  ensureKbDir();
+  try {
+    if (fs.existsSync(KB_PATH)) {
+      const raw = fs.readFileSync(KB_PATH, 'utf8');
+      const arr = JSON.parse(raw);
+      if (Array.isArray(arr)) {
+        externalKB = arr.map(entry => ({
+          ...entry,
+          _patterns: Array.isArray(entry.patterns) ? entry.patterns.map(p => new RegExp(p, 'i')) : [],
+        }));
+      }
+    }
+  } catch (e) {
+    console.warn('Failed to load external KB', e);
+    externalKB = [];
+  }
+}
+
+function saveExternalKB() {
+  ensureKbDir();
+  try {
+    const serializable = externalKB.map(({ _patterns, ...rest }) => rest);
+    fs.writeFileSync(KB_PATH, JSON.stringify(serializable, null, 2), 'utf8');
+  } catch (e) {
+    console.warn('Failed to save external KB', e);
+  }
+}
+
+loadExternalKB();
 
 const knowledgeBase = [
   {
@@ -501,7 +661,8 @@ const knowledgeBase = [
       hi: 'CityConnect एक नागरिक सहभागिता प्लेटफ़ॉर्म है: समस्याएँ दर्ज करें, समाधान ट्रैक करें, परिवहन जानकारी देखें, पोल में वोट करें और अंक व बैज अर्जित करें।',
       es: 'CityConnect es una plataforma de participación cívica: reporta incidencias, sigue resoluciones, consulta transporte, vota en encuestas y gana puntos y medallas.',
       mr: 'CityConnect हे नागरी सहभागाचे व्यासपीठ आहे: स्थानिक तक्रारी नोंदवा, निराकरणे ट्रॅक करा, परिवहन माहिती पाहा, मतदान करा आणि गुण व बॅज मिळवा.',
-      te: 'CityConnect ఒక పౌర భాగస్వామ్య వేదిక: సమస్యలను నివేదించండి, పరిష్కారాలను ట్రాక్ చేయండి, రవాణా సమాచారం చూడండి, పోల్స్‌లో ఓటు వేయండి, పాయింట్లు & బ్యాడ్జ్లు సంపాదించండి.'
+      te: 'CityConnect ఒక పౌర భాగస్వామ్య వేదిక: సమస్యలను నివేదించండి, పరిష్కారాలను ట్రాక్ చేయండి, రవాణా సమాచారం చూడండి, పోల్స్‌లో ఓటు వేయండి, పాయింట్లు & బ్యాడ్జ్లు సంపాదించండి.',
+      fr: 'CityConnect est une plateforme d’engagement civique : signalez des problèmes, suivez les résolutions, consultez les transports, votez aux sondages et gagnez des points et des badges.'
     }
   },
   {
@@ -512,7 +673,8 @@ const knowledgeBase = [
       hi: 'रिपोर्ट इश्यू पेज पर जाएँ: शीर्षक, विवरण, स्थान (मानचित्र/ऑटो) और फ़ोटो जोड़ें—इससे तेज़ कार्रवाई होती है।',
       es: 'Ve a Report Issue: añade título, descripción, localización y una foto para agilizar la respuesta.',
       mr: '"Report Issue" पृष्ठ वापरा: शीर्षक, वर्णन, स्थान आणि फोटो जोडल्यास जलद कार्यवाही मिळते.',
-      te: 'Report Issue పేజీకి వెళ్లి: శీర్షిక, వివరణ, స్థానం, ఫోటో జోడించండి — ఇది వేగంగా చర్యకు సహాయపడుతుంది.'
+      te: 'Report Issue పేజీకి వెళ్లి: శీర్షిక, వివరణ, స్థానం, ఫోటో జోడించండి — ఇది వేగంగా చర్యకు సహాయపడుతుంది.',
+      fr: 'Utilisez la page « Report Issue » : ajoutez un titre clair, une description, la localisation (carte ou auto) et une photo pour accélérer le traitement.'
     }
   },
   {
@@ -523,7 +685,8 @@ const knowledgeBase = [
       hi: 'आपको अंक समस्याएँ दर्ज करने, पोल में वोट करने और निरंतर भागीदारी पर मिलते हैं। माइलस्टोन पर बैज अनलॉक होते हैं; टॉप योगदानकर्ताओं के लिए लीडरबोर्ड देखें।',
       es: 'Ganas puntos por reportar incidencias, votar y participar. Las medallas se desbloquean con hitos; consulta el Leaderboard.',
       mr: 'तक्रारी नोंदवणे, मतदान करणे आणि सातत्यपूर्ण सहभाग यासाठी गुण मिळतात. माइलस्टोनवर बॅज अनलॉक होतात; लीडरबोर्ड पाहा.',
-      te: 'సమస్యలు నివేదించడం, పోల్స్‌లో ఓటు వేయడం, నిరంతర భాగస్వామ్యంతో పాయింట్లు వస్తాయి. మైల్స్‌టోన్‌ల వద్ద బ్యాడ్జ్‌లు అన్‌లాక్ అవుతాయి; లీడర్‌బోర్డ్ చూడండి.'
+      te: 'సమస్యలు నివేదించడం, పోల్స్‌లో ఓటు వేయడం, నిరంతర భాగస్వామ్యంతో పాయింట్లు వస్తాయి. మైల్స్‌టోన్‌ల వద్ద బ్యాడ్జ్‌లు అన్‌లాక్ అవుతాయి; లీడర్‌బోర్డ్ చూడండి.',
+      fr: 'Vous gagnez des points en signalant des problèmes, en votant et en participant. Des badges se débloquent à des paliers ; consultez le Leaderboard.'
     }
   },
   {
@@ -534,7 +697,8 @@ const knowledgeBase = [
       hi: 'परिवहन अनुभाग में रूट, अगली आगमन समय, भीड़ और सुझाव दिखते हैं। "बस स्टेटस" पूछ सकते हैं या डैशबोर्ड देखें।',
       es: 'La sección de transporte muestra rutas, próximas llegadas, ocupación y sugerencias. Puedes preguntar: "estado bus".',
       mr: 'परिवहन विभागात मार्ग, पुढील आगमन, गर्दी आणि सूचनांची माहिती असते. "बस स्थिती" विचारा किंवा डॅशबोर्ड पहा.',
-      te: 'రవాణా విభాగం మార్గాలు, తదుపరి రాకలు, ఆక్యుపెన్సీ & సూచనలు చూపుతుంది. "bus status" అని అడగవచ్చు లేదా డ్యాష్‌బోర్డ్ చూడండి.'
+      te: 'రవాణా విభాగం మార్గాలు, తదుపరి రాకలు, ఆక్యుపెన్సీ & సూచనలు చూపుతుంది. "bus status" అని అడగవచ్చు లేదా డ్యాష్‌బోర్డ్ చూడండి.',
+      fr: 'La section Transport affiche les lignes, prochaines arrivées, taux d’occupation et suggestions. Demandez : « bus status » ou voyez le tableau de bord.'
     }
   },
   {
@@ -545,7 +709,8 @@ const knowledgeBase = [
       hi: 'केवल ज़रूरी डेटा (समस्या विवरण, बुनियादी प्रोफ़ाइल) सुरक्षित होता है। स्थान वैकल्पिक है; मीडिया सिर्फ़ समाधान हेतु उपयोग होता है। भविष्य में अधिक नियंत्रक विकल्प आएंगे।',
       es: 'Solo almacenamos datos necesarios (detalle de incidencia, perfil básico). Ubicación es opcional; las fotos solo ayudan a resolver.',
       mr: 'फक्त आवश्यक डेटा (तक्रार माहिती, मूलभूत प्रोफाइल) जतन केला जातो. लोकेशन वैकल्पिक आहे; फोटो फक्त निराकरणासाठी वापरले जातात.',
-      te: 'అవసరమైన డేటా మాత్రమే (సమస్య వివరాలు, ప్రాథమిక ప్రొఫైల్) నిల్వ. స్థానం ఐచ్ఛికం; మీడియా సమస్య పరిష్కారానికే ఉపయోగిస్తుంది.'
+      te: 'అవసరమైన డేటా మాత్రమే (సమస్య వివరాలు, ప్రాథమిక ప్రొఫైల్) నిల్వ. స్థానం ఐచ్ఛికం; మీడియా సమస్య పరిష్కారానికే ఉపయోగిస్తుంది.',
+      fr: 'Nous stockons uniquement les données nécessaires (détails du signalement, profil basique). La localisation est optionnelle ; les photos servent à la résolution.'
     }
   },
   {
@@ -556,7 +721,8 @@ const knowledgeBase = [
       hi: 'मैं आपकी मदद कर सकता हूँ: समस्या दर्ज करें, परिवहन देखें, पोल में वोट करें, गेमिफिकेशन आँकड़े देखें। पूछें: "कैसे रिपोर्ट करें" या "अंक"।',
       es: 'Puedo ayudarte: reportar, transporte, votar en encuestas, gamificación. Pregunta: "cómo reportar" o "puntos".',
       mr: 'मी मदत करू शकतो: तक्रार नोंदवा, परिवहन पाहा, मतदान करा, गुण पहा. विचारा: "तक्रार कशी" किंवा "गुण".',
-      te: 'నేను సహాయపడగలను: సమస్య నివేదించు, రవాణా చూడండి, పోల్స్‌లో ఓటు వేయండి, పాయింట్లు చూడండి. అడగండి: "how to report" లేదా "points".'
+      te: 'నేను సహాయపడగలను: సమస్య నివేదించు, రవాణా చూడండి, పోల్స్‌లో ఓటు వేయండి, పాయింట్లు చూడండి. అడగండి: "how to report" లేదా "points".',
+      fr: 'Je peux vous aider : signaler un problème, voir le transport, voter, consulter vos points. Demandez : « comment signaler » ou « points ».'
     }
   }
 ];
@@ -566,10 +732,16 @@ const genericReplies = {
   hi: { unknown: 'मैंने आपका संदेश दर्ज कर लिया। "help" या "अंक" / "रिपोर्ट" पूछें।' },
   es: { unknown: 'He registrado tu mensaje. Pregunta por puntos, reportar, transporte o escribe "help".' },
   mr: { unknown: 'मी तुमचा संदेश नोंदवला आहे. "help", "गुण" किंवा "तक्रार" विचारा.' },
-  te: { unknown: 'మీ సందేశం నమోదైంది. "help", "points" లేదా "report" అడగండి.' }
+  te: { unknown: 'మీ సందేశం నమోదైంది. "help", "points" లేదా "report" అడగండి.' },
+  fr: { unknown: 'J’ai bien reçu votre message. Demandez « points », « comment signaler », « transport » ou tapez « help ».' }
 };
 
 function matchTopic(text) {
+  // 1) Try external KB first
+  for (const entry of externalKB) {
+    if (Array.isArray(entry._patterns) && entry._patterns.some(p => p.test(text))) return entry;
+  }
+  // 2) Fallback to built-in KB
   for (const entry of knowledgeBase) {
     if (entry.patterns.some(p => p.test(text))) return entry;
   }
@@ -587,7 +759,8 @@ expressApp.post('/api/assistant', async (req, res) => {
 
     const matched = matchTopic(lower);
     if (matched) {
-      const answer = matched.answers[lang] || matched.answers.en;
+      const answers = matched.answers || {};
+      const answer = answers[lang] || answers.en || (genericReplies[lang] || genericReplies.en).unknown;
       return res.json({ reply: answer, topic: matched.topic });
     }
     // fallback heuristics for transport keywords not covered
@@ -595,12 +768,77 @@ expressApp.post('/api/assistant', async (req, res) => {
       return res.json({ reply: (knowledgeBase.find(k=>k.topic==='transport').answers[lang]) });
     }
     const pack = genericReplies[lang] || genericReplies.en;
+    // Log unknowns for training
+    try {
+      ensureKbDir();
+      fs.appendFileSync(UNKNOWN_LOG, JSON.stringify({ t: Date.now(), lang, message }) + '\n');
+    } catch {}
     return res.json({ reply: pack.unknown });
   } catch (e) {
     console.error('Assistant error', e);
     res.status(500).json({ error: 'Assistant failed' });
   }
 });
+
+// --- Assistant KB management (basic) ---
+// Get current KB entries (external only)
+expressApp.get('/api/assistant/kb', (req, res) => {
+  const data = externalKB.map(({ _patterns, ...rest }) => rest);
+  res.json({ items: data });
+});
+
+// Add or update a KB entry
+// Body: { topic, patterns: string[], answers: { lang: text } }
+expressApp.post('/api/assistant/kb', (req, res) => {
+  try {
+    const { topic, patterns, answers } = req.body || {};
+    if (!topic || !Array.isArray(patterns) || !answers) {
+      return res.status(400).json({ error: 'topic, patterns[], answers required' });
+    }
+    const existing = externalKB.find(e => e.topic === topic);
+    if (existing) {
+      if (Array.isArray(patterns) && patterns.length) {
+        const merged = Array.from(new Set([...(existing.patterns || []), ...patterns]));
+        existing.patterns = merged;
+        existing._patterns = merged.map(p => new RegExp(p, 'i'));
+      }
+      existing.answers = { ...(existing.answers || {}), ...answers };
+    } else {
+      externalKB.push({ topic, patterns, answers, _patterns: patterns.map(p => new RegExp(p, 'i')) });
+    }
+    saveExternalKB();
+    res.status(201).json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to update KB' });
+  }
+});
+
+// Quick teach endpoint for a single Q/A
+// Body: { question: string, answer: string, language?: string, topic?: string }
+expressApp.post('/api/assistant/teach', (req, res) => {
+  try {
+    const { question, answer, language = 'en', topic = 'custom' } = req.body || {};
+    if (!question || !answer) return res.status(400).json({ error: 'question and answer are required' });
+    const lang = ASSISTANT_LANGS.includes(language) ? language : 'en';
+    const entry = externalKB.find(e => e.topic === topic);
+    const pattern = escapeRegex(String(question).trim());
+    if (entry) {
+      entry.patterns = Array.from(new Set([...(entry.patterns || []), pattern]));
+      entry._patterns = entry.patterns.map(p => new RegExp(p, 'i'));
+      entry.answers = { ...(entry.answers || {}), [lang]: String(answer) };
+    } else {
+      externalKB.push({ topic, patterns: [pattern], answers: { [lang]: String(answer) }, _patterns: [new RegExp(pattern, 'i')] });
+    }
+    saveExternalKB();
+    res.status(201).json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to teach' });
+  }
+});
+
+function escapeRegex(s) {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
 
 // --- Vision classification endpoint (mock) ---
 expressApp.post('/api/vision/classify', async (req, res) => {

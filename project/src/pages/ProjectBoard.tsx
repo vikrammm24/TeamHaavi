@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
-import { DragDropContext, Droppable, Draggable, DropResult } from 'react-beautiful-dnd';
+import React, { useState } from 'react';
+import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Plus, Filter, Search, Clock, MapPin, User, Star, Zap } from 'lucide-react';
+import { ArrowLeft, Plus, Search, Clock, MapPin, User, Star, Zap } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useUser } from '../contexts/UserContext';
+import type { DraggableProvided } from '@hello-pangea/dnd';
 
 interface Task {
   id: string;
@@ -33,7 +34,7 @@ const ProjectBoard: React.FC = () => {
   const { user } = useUser();
   const [searchTerm, setSearchTerm] = useState('');
   const [filterPriority, setFilterPriority] = useState('all');
-  const [showAIRecommendations, setShowAIRecommendations] = useState(true);
+  
 
   const [columns, setColumns] = useState<Column[]>([
     {
@@ -314,11 +315,11 @@ const ProjectBoard: React.FC = () => {
                       <AnimatePresence>
                         {column.tasks.map((task, index) => (
                           <Draggable key={task.id} draggableId={task.id} index={index}>
-                            {(provided, snapshot) => (
+                            {(provided: DraggableProvided, snapshot) => (
                               <motion.div
                                 ref={provided.innerRef}
-                                {...provided.draggableProps}
-                                {...provided.dragHandleProps}
+                                {...(provided.draggableProps as any)}
+                                {...(provided.dragHandleProps as any)}
                                 initial={{ scale: 0, opacity: 0 }}
                                 animate={{ scale: 1, opacity: 1 }}
                                 exit={{ scale: 0, opacity: 0 }}

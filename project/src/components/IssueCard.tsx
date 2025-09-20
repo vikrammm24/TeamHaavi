@@ -1,7 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { likeReport, unlikeReport, getReportLikes, addReportComment, getReportComments } from '../api/social';
+import { rtdb } from './firebase/firebase';
+import { ref as dbRef, onValue } from 'firebase/database';
 import { motion } from 'framer-motion';
 import { MapPin, Clock, User, CheckCircle, AlertTriangle, Pause } from 'lucide-react';
+import { useGamification } from '../contexts/gamification/useGamification';
+import { useNotifications } from '../contexts/NotificationContext';
 
 interface Issue {
   id: string;
@@ -29,11 +33,25 @@ const IssueCard: React.FC<IssueCardProps> = ({ issue }) => {
   const [isLiking, setIsLiking] = useState(false);
   const [isCommenting, setIsCommenting] = useState(false);
   const userId = typeof window !== 'undefined' && window.localStorage.getItem('userId');
+  const { awardEvent } = useGamification();
+  const { addNotification } = useNotifications();
 
   useEffect(() => {
-    // Fetch likes and comments from backend
+    // Initial one-time fetch
     getReportLikes(issue.id).then(setLikes);
     getReportComments(issue.id).then(setComments);
+    // Live RTDB listeners
+    const likesRef = dbRef(rtdb, `reportLikes/${issue.id}`);
+    const commentsRef = dbRef(rtdb, `reportComments/${issue.id}`);
+    const off1 = onValue(likesRef, (snap) => {
+      const v = snap.val();
+      setLikes(v ? Object.keys(v) : []);
+    });
+    const off2 = onValue(commentsRef, (snap) => {
+      const v = snap.val();
+      setComments(v ? Object.values(v) : []);
+    });
+    return () => { off1(); off2(); };
   }, [issue.id]);
 
   const hasLiked = userId && likes.includes(userId);
@@ -45,6 +63,10 @@ const IssueCard: React.FC<IssueCardProps> = ({ issue }) => {
         await unlikeReport(issue.id);
       } else {
         await likeReport(issue.id);
+        const res = awardEvent('ISSUE_UPVOTED', { issueId: issue.id });
+        if (res) {
+          addNotification?.({ type: 'info', title: 'Upvoted', message: `Thanks for supporting! +${res.pointsAwarded} pts.` });
+        }
       }
       const updatedLikes = await getReportLikes(issue.id);
       setLikes(updatedLikes);

@@ -1,28 +1,60 @@
 import React, { useState, useEffect } from 'react';
+import { listenGlobalNotifications } from '../components/firebase/notifications';
+import { useNotifications } from '../contexts/NotificationContext';
 import { useNavigate } from 'react-router-dom';
 import { Briefcase, Clock, CheckCircle, Star, MapPin, Calendar } from 'lucide-react';
 import DashboardLayout from '../components/DashboardLayout';
+import EcoImpactDiversityRecognition from '../components/EcoImpactDiversityRecognition';
+import BlockchainPortfolioCertifications from '../components/BlockchainPortfolioCertifications';
+import MentorshipKnowledgeBadges from '../components/MentorshipKnowledgeBadges';
 import StatCard from '../components/StatCard';
 import api from '../api/config';
 import { motion } from 'framer-motion';
-import { fetchMatches, fetchAnalytics, fetchPayments, fetchSensors, fetchBroadcast, fetchTransport, fetchLeaderboard, fetchVerifications, fetchJobs, fetchMyJobs } from '../api/dataSources';
+import { fetchMatches, fetchAnalytics, fetchPayments, fetchSensors, fetchBroadcast, fetchTransport, fetchLeaderboard, fetchVerifications } from '../api/dataSources';
+import { rtdb, auth } from '../components/firebase/firebase';
+import { ref as dbRef, onChildAdded, onValue, set as dbSet } from 'firebase/database';
+import EngagementFeatures from '../components/EngagementFeatures';
 
 const ProfessionalDashboard: React.FC = () => {
+
+  const { addNotification } = useNotifications();
   const navigate = useNavigate();
   const [animateCards, setAnimateCards] = useState(false);
+
+  useEffect(() => {
+    const jobsRef = dbRef(rtdb, '/jobs');
+    const unsub = onChildAdded(jobsRef, (snap) => {
+      const job = snap.val();
+      addNotification && addNotification({
+        type: 'info',
+        title: 'New Job Posted',
+        message: job.title || 'A new job is available.',
+      });
+    });
+    return () => unsub();
+  }, []);
+
   const [aiMatches, setAiMatches] = useState<any[]>([]);
   const [aiAnalytics, setAiAnalytics] = useState<any>(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
-  const [payments, setPayments] = useState([]);
-  const [sensors, setSensors] = useState([]);
-  const [verifications, setVerifications] = useState([]);
+  const [payments, setPayments] = useState<any[]>([]);
+  const [sensors, setSensors] = useState<any[]>([]);
+  const [verifications, setVerifications] = useState<any[]>([]);
   const [broadcast, setBroadcast] = useState<any | null>(null);
   const [transport, setTransport] = useState<any>(null);
   const [leaderboard, setLeaderboard] = useState<any[]>([]);
 
   useEffect(() => {
     setAnimateCards(true);
+    const unsub = listenGlobalNotifications((notification) => {
+      addNotification({
+        type: notification.type,
+        title: notification.title,
+        message: notification.message,
+      });
+    });
+    return () => unsub();
   }, []);
 
   useEffect(() => {
@@ -73,12 +105,12 @@ const ProfessionalDashboard: React.FC = () => {
   useEffect(() => {
     fetchVerifications().then(setVerifications);
   }, []);
-  const handleApprove = async (id) => {
+  const handleApprove = async (id: string) => {
     await api.patch(`/verifications/${id}`, { status: 'approved' });
     setVerifications(vs => vs.map(v => v.id === id ? { ...v, status: 'approved' } : v));
   };
 
-  const stats = [
+  const stats: Array<{ title: string; value: string; change: string; trend: 'up' | 'down' | 'neutral'; icon: React.ReactNode; color: string }> = [
     {
       title: 'Active Jobs',
       value: '8',
@@ -113,39 +145,58 @@ const ProfessionalDashboard: React.FC = () => {
     }
   ];
 
-  const availableJobs = [
-    {
-      id: '1',
-      title: 'Electrical Repair - Street Light',
-      description: 'Replace faulty LED bulb in streetlight on Main Street',
-      location: 'Main Street & 1st Ave',
-      priority: 'medium',
-      estimatedDuration: '2 hours',
-      budget: '$150',
-      postedAt: '30 min ago'
-    },
-    {
-      id: '2',
-      title: 'Pothole Repair',
-      description: 'Fill and seal medium-sized pothole causing traffic issues',
-      location: 'Oak Avenue & 3rd St',
-      priority: 'high',
-      estimatedDuration: '4 hours',
-      budget: '$300',
-      postedAt: '1 hour ago'
-    },
-    {
-      id: '3',
-      title: 'Graffiti Removal',
-      description: 'Clean graffiti from bus stop walls and protective barriers',
-      location: 'Bus Stop #47',
-      priority: 'low',
-      estimatedDuration: '1 hour',
-      budget: '$80',
-      postedAt: '2 hours ago'
+  const handleStatClick = (title: string) => {
+    switch (title) {
+      case 'Active Jobs':
+        navigate('/active-jobs');
+        break;
+      case 'Completed Jobs':
+        navigate('/completed-jobs');
+        break;
+      case 'Average Rating':
+        navigate('/ratings');
+        break;
+      case 'Response Time':
+        navigate('/response-time');
+        break;
     }
-  ];
+  };
 
+  const [availableJobs, setAvailableJobs] = useState<any[]>([{
+    id: '1',
+    title: 'Electrical Repair - Street Light',
+    description: 'Replace faulty LED bulb in streetlight on Main Street',
+    location: 'Main Street & 1st Ave',
+    priority: 'medium',
+    estimatedDuration: '2 hours',
+    budget: '$150',
+    postedAt: '30 min ago'
+  }]);
+
+  // Live jobs feed
+  useEffect(() => {
+    const jobsRef = dbRef(rtdb, '/jobs');
+    const off = onValue(jobsRef, (snap) => {
+      const v = snap.val() || {};
+      const arr = Object.entries(v).map(([id, val]: any) => ({ id, ...(val || {}) }));
+      if (Array.isArray(arr) && arr.length) setAvailableJobs(arr);
+    });
+    return () => off();
+  }, []);
+
+  const [appliedMap, setAppliedMap] = useState<Record<string, boolean>>({});
+  useEffect(() => {
+    const u = auth.currentUser;
+    if (!u) return;
+    const appliedRef = dbRef(rtdb, `appliedJobs/${u.uid}`);
+    const off = onValue(appliedRef, (snap) => {
+      const v = snap.val() || {};
+      const map: Record<string, boolean> = {};
+      Object.keys(v).forEach((id) => { map[id] = true; });
+      setAppliedMap(map);
+    });
+    return () => off();
+  }, []);
   const activeJobs = [
     {
       id: '1',
@@ -166,8 +217,14 @@ const ProfessionalDashboard: React.FC = () => {
   ];
 
   return (
-    <DashboardLayout title="Professional Dashboard">
+  <DashboardLayout title="Professional Dashboard" sidebarType="professional">
       <div className="space-y-6">
+  {/* Eco-Impact Tracker & Diversity Recognition */}
+  <EcoImpactDiversityRecognition />
+  {/* Blockchain Portfolio & Certifications */}
+  <BlockchainPortfolioCertifications />
+  {/* Mentorship & Knowledge Badges */}
+  <MentorshipKnowledgeBadges />
         {/* Quick Actions */}
         <div className="bg-gradient-to-r from-green-600 to-green-700 rounded-xl p-6 text-white">
           <div className="flex flex-col md:flex-row items-center justify-between">
@@ -188,14 +245,14 @@ const ProfessionalDashboard: React.FC = () => {
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {stats.map((stat, index) => (
+          {(Array.isArray(stats) ? stats : []).map((stat, index) => (
             <motion.div
               key={stat.title}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: animateCards ? 1 : 0, y: animateCards ? 0 : 20 }}
               transition={{ delay: index * 0.1 }}
             >
-              <StatCard {...stat} />
+              <StatCard {...stat} onClick={() => handleStatClick(stat.title)} />
             </motion.div>
           ))}
         </div>
@@ -210,7 +267,7 @@ const ProfessionalDashboard: React.FC = () => {
           <h3 className="text-xl font-semibold text-gray-800 mb-6">Active Jobs</h3>
           
           <div className="space-y-4">
-            {activeJobs.map((job, index) => (
+            {(Array.isArray(activeJobs) ? activeJobs : []).map((job) => (
               <div
                 key={job.id}
                 className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow duration-300"
@@ -256,7 +313,7 @@ const ProfessionalDashboard: React.FC = () => {
           </div>
         )}
 
-        {/* Available Jobs */}
+        {/* Applied Jobs */}
         <div
           className={`bg-white rounded-xl shadow-lg p-6 transform transition-all duration-500 ${
             animateCards ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
@@ -264,14 +321,17 @@ const ProfessionalDashboard: React.FC = () => {
           style={{ transitionDelay: '0.5s' }}
         >
           <div className="flex items-center justify-between mb-6">
-            <h3 className="text-xl font-semibold text-gray-800">Available Jobs</h3>
-            <button className="text-blue-600 hover:text-blue-700 font-medium transition-colors duration-300">
+            <h3 className="text-xl font-semibold text-gray-800">Applied Jobs</h3>
+            <button
+              onClick={() => navigate('/my-jobs')}
+              className="text-blue-600 hover:text-blue-700 font-medium transition-colors duration-300"
+            >
               View All Jobs
             </button>
           </div>
 
           <div className="grid gap-6">
-            {availableJobs.map((job, index) => (
+            {(Array.isArray(availableJobs) ? availableJobs : []).map((job, index) => (
               <div
                 key={job.id}
                 className={`border border-gray-200 rounded-lg p-6 hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1 ${
@@ -309,12 +369,67 @@ const ProfessionalDashboard: React.FC = () => {
                   </div>
                   
                   <div className="flex flex-col gap-2 lg:w-32">
-                    <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-all duration-300 transform hover:scale-105">
-                      Apply
+                    <button
+                      className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-all duration-300 transform hover:scale-105"
+                      disabled={!!appliedMap[job.id]}
+                      onClick={async () => {
+                        try {
+                          const user = auth.currentUser;
+                          if (!user) {
+                            addNotification?.({ type: 'warning', title: 'Login required', message: 'Please log in to apply.' });
+                            return;
+                          }
+                          const appliedPayload = {
+                            id: job.id,
+                            title: job.title,
+                            description: job.description,
+                            location: job.location,
+                            priority: job.priority,
+                            estimatedDuration: job.estimatedDuration,
+                            budget: job.budget,
+                            postedAt: job.postedAt,
+                            status: 'in-progress',
+                            appliedAt: Date.now(),
+                          };
+                          await dbSet(dbRef(rtdb, `appliedJobs/${user.uid}/${job.id}`), appliedPayload);
+                          addNotification?.({ type: 'success', title: 'Applied', message: `You applied to ${job.title}` });
+                          navigate('/my-jobs');
+                        } catch (e: any) {
+                          addNotification?.({ type: 'error', title: 'Apply failed', message: String(e?.message || e) });
+                        }
+                      }}
+                    >
+                      {appliedMap[job.id] ? 'Applied' : 'Apply'}
                     </button>
-                    <button className="text-blue-600 hover:text-blue-700 px-4 py-2 rounded-lg font-medium border border-blue-600 hover:bg-blue-50 transition-all duration-300">
+                    <button
+                      className="text-blue-600 hover:text-blue-700 px-4 py-2 rounded-lg font-medium border border-blue-600 hover:bg-blue-50 transition-all duration-300"
+                      onClick={async () => {
+                        try {
+                          const user = auth.currentUser;
+                          if (!user) {
+                            addNotification?.({ type: 'warning', title: 'Login required', message: 'Please log in to view details.' });
+                            return;
+                          }
+                          const detailsPayload = {
+                            title: job.title,
+                            description: job.description,
+                            location: job.location,
+                            priority: job.priority,
+                            estimatedDuration: job.estimatedDuration,
+                            budget: job.budget,
+                            postedAt: job.postedAt,
+                            savedAt: Date.now(),
+                          };
+                          await dbSet(dbRef(rtdb, `jobDetails/${user.uid}/${job.id}`), detailsPayload);
+                          navigate(`/job/${job.id}`, { state: { job: { id: job.id, ...detailsPayload } } });
+                        } catch (e: any) {
+                          addNotification?.({ type: 'error', title: 'Open details failed', message: String(e?.message || e) });
+                        }
+                      }}
+                    >
                       Details
                     </button>
+                    {/* Back button removed per request */}
                   </div>
                 </div>
               </div>
@@ -327,9 +442,9 @@ const ProfessionalDashboard: React.FC = () => {
           <h2 className="text-2xl font-bold mb-4">Public Transport Updates</h2>
           {transport ? (
             <ul className="list-disc pl-5 text-sm">
-              {transport.routes.map((r:any) => (
+              {(Array.isArray(transport?.routes) ? transport.routes : []).map((r:any) => (
                 <li key={r.id} className="mb-1">
-                  <span className="font-medium">{r.name}</span> — next: {r.nextArrivals.join(', ')} — occ: {r.occupancy}%
+                  <span className="font-medium">{r.name}</span>  next: {Array.isArray(r.nextArrivals) ? r.nextArrivals.join(', ') : ''}  occ: {r.occupancy}%
                   <div className="text-gray-600">Info: {r.suggestedAction}</div>
                 </li>
               ))}
@@ -351,12 +466,12 @@ const ProfessionalDashboard: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <h3 className="font-semibold mb-2">Recommended Matches</h3>
-                {aiMatches.length === 0 ? (
+                {(Array.isArray(aiMatches) && aiMatches.length === 0) ? (
                   <div className="text-gray-400">No matches found.</div>
                 ) : (
                   <ul className="list-disc pl-5">
-                    {aiMatches.map((match: any) => (
-                      <li key={match.id} className="mb-1">{match.name} ({match.needs ? match.needs.join(', ') : ''})</li>
+                    {(Array.isArray(aiMatches) ? aiMatches : []).map((match: any) => (
+                      <li key={match.id} className="mb-1">{match.name} ({Array.isArray(match.needs) ? match.needs.join(', ') : ''})</li>
                     ))}
                   </ul>
                 )}
@@ -379,7 +494,7 @@ const ProfessionalDashboard: React.FC = () => {
           <div className="overflow-x-auto">
             <table className="min-w-full text-sm">
               <thead><tr><th>From</th><th>To</th><th>Amount</th><th>Status</th><th>Tx Hash</th><th>Time</th></tr></thead>
-              <tbody>{payments.map(p => <tr key={p.id}><td>{p.from}</td><td>{p.to}</td><td>{p.amount}</td><td>{p.status}</td><td>{p.txHash}</td><td>{new Date(p.timestamp).toLocaleString()}</td></tr>)}</tbody>
+              <tbody>{(Array.isArray(payments) ? payments : []).map(p => <tr key={p.id}><td>{p.from}</td><td>{p.to}</td><td>{p.amount}</td><td>{p.status}</td><td>{p.txHash}</td><td>{new Date(p.timestamp).toLocaleString()}</td></tr>)}</tbody>
             </table>
           </div>
         </section>
@@ -390,7 +505,7 @@ const ProfessionalDashboard: React.FC = () => {
           <div className="overflow-x-auto">
             <table className="min-w-full text-sm">
               <thead><tr><th>Type</th><th>Value</th><th>Location</th><th>Status</th><th>Time</th></tr></thead>
-              <tbody>{sensors.map(s => <tr key={s.id}><td>{s.type}</td><td>{s.value}</td><td>{s.location}</td><td>{s.status}</td><td>{new Date(s.timestamp).toLocaleString()}</td></tr>)}</tbody>
+              <tbody>{(Array.isArray(sensors) ? sensors : []).map(s => <tr key={s.id}><td>{s.type}</td><td>{s.value}</td><td>{s.location}</td><td>{s.status}</td><td>{new Date(s.timestamp).toLocaleString()}</td></tr>)}</tbody>
             </table>
           </div>
         </section>
@@ -401,7 +516,7 @@ const ProfessionalDashboard: React.FC = () => {
           <div className="overflow-x-auto">
             <table className="min-w-full text-sm">
               <thead><tr><th>Name</th><th>Status</th><th>Action</th></tr></thead>
-              <tbody>{verifications.map(v => <tr key={v.id}><td>{v.name}</td><td>{v.status}</td><td>{v.status === 'pending' && <button className="px-2 py-1 bg-green-500 text-white rounded" onClick={() => handleApprove(v.id)}>Approve</button>}</td></tr>)}</tbody>
+              <tbody>{(Array.isArray(verifications) ? verifications : []).map(v => <tr key={v.id}><td>{v.name}</td><td>{v.status}</td><td>{v.status === 'pending' && <button className="px-2 py-1 bg-green-500 text-white rounded" onClick={() => handleApprove(v.id)}>Approve</button>}</td></tr>)}</tbody>
             </table>
           </div>
         </section>
@@ -411,23 +526,22 @@ const ProfessionalDashboard: React.FC = () => {
           <div>
             <h3 className="font-semibold mb-2">Leaderboard</h3>
             <ol className="list-decimal pl-5 text-sm">
-              {leaderboard.map((u:any, idx:number) => (
+              {(Array.isArray(leaderboard) ? leaderboard : []).map((u:any) => (
                 <li key={u.id} className="mb-1">
-                  <span className="font-medium">{u.user}</span> — {u.points} pts <span className="text-gray-500">[{u.badges.join(', ')}]</span>
+                  <span className="font-medium">{u.user}</span>  {u.points} pts <span className="text-gray-500">[{Array.isArray(u.badges) ? u.badges.join(', ') : ''}]</span>
                 </li>
               ))}
             </ol>
           </div>
         </section>
 
-        {/* Citizen Engagement Features Section */}
+        {/* Citizen Engagement Features */}
         <section className="my-8 p-6 bg-white rounded shadow">
           <h2 className="text-2xl font-bold mb-4">Citizen Engagement Features</h2>
-          <p className="mb-2 text-gray-700">This section will host polls, surveys, and consultations for citizens.</p>
-          <div className="border border-dashed border-gray-300 p-4 rounded text-center text-gray-400">[Polls, Surveys & Consultations UI Coming Soon]</div>
+          <EngagementFeatures />
         </section>
       </div>
-    </DashboardLayout>
+  </DashboardLayout>
   );
 };
 

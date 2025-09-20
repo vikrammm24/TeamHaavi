@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useMemo, useRef, useState 
 import type { PropsWithChildren } from 'react';
 import 'leaflet/dist/leaflet.css';
 import { MapContainer, TileLayer, Marker, Popup, Circle, useMapEvents, useMap } from 'react-leaflet';
+import { GeoJSON } from 'react-leaflet';
 import L from 'leaflet';
 
 // Fix default icon paths for Leaflet in bundlers
@@ -64,6 +65,9 @@ function useGeolocationWatcher(): LocationState {
           });
           setTimestamp(pos.timestamp);
           setError(null);
+          try {
+            localStorage.setItem('cc:lastLocation', JSON.stringify({ lat: pos.coords.latitude, lng: pos.coords.longitude }));
+          } catch { /* ignore */ }
         },
         (err) => {
           setError(err.message || 'Failed to get location');
@@ -127,7 +131,27 @@ type LatLngTuple = [number, number];
 
 export type IssuePin = { id: string; title: string; lat: number; lng: number };
 
-function FollowUserOnce({ when = 'granted' as const }) {
+const blueIcon = new L.Icon({
+  iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+  iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+  shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+  popupAnchor: [1, -34],
+  shadowSize: [41, 41],
+});
+
+const redIcon = new L.Icon({
+  iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png',
+  iconRetinaUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
+  shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+  popupAnchor: [1, -34],
+  shadowSize: [41, 41],
+});
+
+function FollowUserOnce() {
   // Center the map once on the user location when permission granted
   const map = useMap();
   const { coords, permission } = useLocation();
@@ -151,6 +175,19 @@ function ClickToSelect({ onSelect }: { onSelect?: (latlng: LatLngTuple) => void 
   return null;
 }
 
+function InvalidateSizeOnMount() {
+  const map = useMap();
+  useEffect(() => {
+    const tick = () => {
+      try { map.invalidateSize(); } catch {}
+    };
+    const t = setTimeout(tick, 0);
+    window.addEventListener('resize', tick);
+    return () => { clearTimeout(t); window.removeEventListener('resize', tick); };
+  }, [map]);
+  return null;
+}
+
 export const MapWithRealtimeLocation: React.FC<{
   className?: string;
   style?: React.CSSProperties;
@@ -159,6 +196,10 @@ export const MapWithRealtimeLocation: React.FC<{
   selectedPosition?: LatLngTuple | null;
   onSelectPosition?: (latlng: LatLngTuple) => void;
   issues?: IssuePin[];
+  reportPins?: IssuePin[];
+  sosPins?: IssuePin[];
+  geojsonUrl?: string;
+  showGeo?: boolean;
   followUser?: boolean;
 }> = ({
   className,
@@ -168,6 +209,10 @@ export const MapWithRealtimeLocation: React.FC<{
   selectedPosition,
   onSelectPosition,
   issues = [],
+  reportPins = [],
+  sosPins = [],
+  geojsonUrl,
+  showGeo = true,
   followUser = true,
 }) => {
   const { coords } = useLocation();
@@ -175,15 +220,36 @@ export const MapWithRealtimeLocation: React.FC<{
     return coords ? [coords.lat, coords.lng] as LatLngTuple : initialCenter;
   }, [coords, initialCenter]);
 
+  const [geoData, setGeoData] = useState<any | null>(null);
+  useEffect(() => {
+    let active = true;
+    if (geojsonUrl && showGeo) {
+      fetch(geojsonUrl)
+        .then((r) => r.json())
+        .then((j) => { if (active) setGeoData(j); })
+        .catch(() => { if (active) setGeoData(null); });
+    } else {
+      setGeoData(null);
+    }
+    return () => { active = false; };
+  }, [geojsonUrl, showGeo]);
+
   // Build draggable marker icon for selection (default is ok)
 
   return (
-    <div className={className} style={style}>
+    <div className={className} style={{ ...(style || {}), position: 'relative' }}>
       <MapContainer center={center} zoom={13} style={{ height, width: '100%' }} scrollWheelZoom>
+        <InvalidateSizeOnMount />
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
+
+        {/* GeoJSON overlay */}
+        {showGeo && geoData && (
+          <GeoJSON data={geoData as any} style={() => ({ color: '#10b981', weight: 2, fillOpacity: 0.08 })}>
+          </GeoJSON>
+        )}
 
         {/* User current location */}
         {coords && (
@@ -200,12 +266,36 @@ export const MapWithRealtimeLocation: React.FC<{
           </>
         )}
 
-        {/* Existing issues pins */}
+        {/* Existing issues pins (fallback/misc) */}
         {issues.map((it) => (
-          <Marker key={it.id} position={[it.lat, it.lng] as LatLngTuple}>
+          <Marker key={`issue:${it.id}`} position={[it.lat, it.lng] as LatLngTuple} icon={blueIcon}>
             <Popup>
               <div className="text-sm">
                 <div className="font-semibold">{it.title}</div>
+                <div className="text-gray-600">{it.lat.toFixed(5)}, {it.lng.toFixed(5)}</div>
+              </div>
+            </Popup>
+          </Marker>
+        ))}
+
+        {/* Report pins (blue) */}
+        {reportPins.map((it) => (
+          <Marker key={`report:${it.id}`} position={[it.lat, it.lng] as LatLngTuple} icon={blueIcon}>
+            <Popup>
+              <div className="text-sm">
+                <div className="font-semibold">{it.title || 'Report'}</div>
+                <div className="text-gray-600">{it.lat.toFixed(5)}, {it.lng.toFixed(5)}</div>
+              </div>
+            </Popup>
+          </Marker>
+        ))}
+
+        {/* SOS pins (red) */}
+        {sosPins.map((it) => (
+          <Marker key={`sos:${it.id}`} position={[it.lat, it.lng] as LatLngTuple} icon={redIcon}>
+            <Popup>
+              <div className="text-sm">
+                <div className="font-semibold">{it.title || 'SOS'}</div>
                 <div className="text-gray-600">{it.lat.toFixed(5)}, {it.lng.toFixed(5)}</div>
               </div>
             </Popup>
@@ -235,6 +325,19 @@ export const MapWithRealtimeLocation: React.FC<{
         {/* Follow user on first fix */}
         {followUser && <FollowUserOnce />}
       </MapContainer>
+      {/* Simple legend overlay */}
+      <div style={{ position: 'absolute', right: 8, bottom: 8, pointerEvents: 'none' }}>
+        <div className="bg-white/90 rounded shadow px-3 py-2 text-xs text-gray-800" style={{ pointerEvents: 'auto' }}>
+          <div className="flex items-center gap-2">
+            <span style={{ width: 10, height: 10, background: '#3b82f6', display: 'inline-block', borderRadius: 2 }}></span>
+            Reports
+          </div>
+          <div className="flex items-center gap-2 mt-1">
+            <span style={{ width: 10, height: 10, background: '#ef4444', display: 'inline-block', borderRadius: 2 }}></span>
+            SOS
+          </div>
+        </div>
+      </div>
     </div>
   );
 };

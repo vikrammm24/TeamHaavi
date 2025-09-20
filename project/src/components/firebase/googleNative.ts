@@ -1,4 +1,4 @@
-import { Capacitor } from '@capacitor/core';
+import { Capacitor } from '../../shims/capacitor-core';
 import { GoogleAuth } from '@codetrix-studio/capacitor-google-auth';
 import { GoogleAuthProvider, signInWithCredential, UserCredential } from 'firebase/auth';
 import { auth } from './firebase';
@@ -8,8 +8,8 @@ let initialized = false;
 export function isNativeGoogleAvailable(): boolean {
   try {
     const hasNative = Capacitor.isNativePlatform?.() ?? false;
-    const isAvailable = (Capacitor as unknown as { isPluginAvailable?: (name: string) => boolean }).isPluginAvailable?.('GoogleAuth') ?? false;
-    return hasNative && isAvailable;
+    const hasMethod = typeof (GoogleAuth as any)?.signIn === 'function';
+    return !!(hasNative && hasMethod);
   } catch {
     return false;
   }

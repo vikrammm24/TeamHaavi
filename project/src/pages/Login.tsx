@@ -31,6 +31,8 @@ const getFriendlyError = (err: unknown): string => {
   const code = e?.code || '';
   if (code === 'auth/email-already-in-use') return 'This email is already registered. Please Sign In.';
   if (code === 'auth/invalid-credential' || code === 'auth/wrong-password') return 'Invalid email or password.';
+  if (code === 'auth/weak-password') return 'Password is too weak. Use at least 6 characters.';
+  if (code === 'auth/invalid-email') return 'Please enter a valid email address.';
   if (code === 'auth/profile-not-found') return 'No profile found for this Google account. Please sign up first.';
   if (isOfflineError(err)) return "You're offline. Please check your connection and try again.";
   return `Firebase: ${e?.message || 'Request failed'}`;
@@ -80,6 +82,9 @@ const Login: React.FC = () => {
   useEffect(() => {
     let cancelled = false;
     (async () => {
+      // Only treat redirect result errors as actionable if we previously intended a Google redirect
+      let intendedGoogle = false;
+      try { intendedGoogle = !!sessionStorage.getItem('cc:google:mode'); } catch {}
       try {
         const auth = getAuth();
         const rr = await getRedirectResult(auth);
@@ -98,7 +103,7 @@ const Login: React.FC = () => {
           // Existing profile required
           let profile: UserProfile | null = null;
           try {
-            profile = await getUserProfile(uid);
+            profile = (await getUserProfile(uid)) as unknown as UserProfile | null;
           } catch (_pfErr: unknown) {
             if (isOfflineError(_pfErr)) {
               profile = {
@@ -132,7 +137,7 @@ const Login: React.FC = () => {
           } catch (pfErr: unknown) {
             if (!isOfflineError(pfErr)) throw pfErr;
           }
-          let profile = await getUserProfile(uid);
+          let profile = (await getUserProfile(uid)) as unknown as UserProfile | null;
           if (!profile) {
             profile = {
               uid,
@@ -147,10 +152,13 @@ const Login: React.FC = () => {
       } catch (e: unknown) {
         const err = e as { message?: string } | undefined;
         const msg = String(err?.message || '').toLowerCase();
+        // If a Google redirect wasn't intended, ignore 'missing initial state' noise on page load
         if (msg.includes('missing initial state')) {
-          setError('Google sign-in was interrupted. Please try again. If it persists, switch off Private mode or use the app.');
+          if (intendedGoogle) {
+            setError('Google sign-in was interrupted. Please try again. If it persists, switch off Private mode or use the app.');
+          }
         } else {
-          setError(getFriendlyError(e));
+          if (intendedGoogle) setError(getFriendlyError(e));
         }
       }
     })();
@@ -183,7 +191,7 @@ const Login: React.FC = () => {
         const uid = cred.user.uid;
         let profile: UserProfile | null = null;
         try {
-          profile = await getUserProfile(uid);
+          profile = (await getUserProfile(uid)) as unknown as UserProfile | null;
   } catch (pfErr: unknown) {
           // If offline or Firestore read blocked, fall back to a local profile
           profile = {
@@ -194,7 +202,7 @@ const Login: React.FC = () => {
           } as UserProfile;
           // Try to upsert minimal profile; ignore errors (offline/rules)
           try {
-            await setUserProfile(uid, profile);
+            await setUserProfile(uid, profile as unknown as Record<string, unknown>);
           } catch (_e) {
             // Ignore profile upsert errors (offline or Firestore rules)
           }
@@ -207,7 +215,7 @@ const Login: React.FC = () => {
             displayName: cred.user.displayName || cred.user.email || formData.email || 'User',
             role: 'citizen',
           } as UserProfile;
-          try { await setUserProfile(uid, profile); } catch (_e) {
+          try { await setUserProfile(uid, profile as unknown as Record<string, unknown>); } catch (_e) {
             // Ignore profile upsert errors (offline or Firestore rules)
           }
         }
@@ -218,6 +226,7 @@ const Login: React.FC = () => {
         // Email/password SIGN UP
         const cred = await doCreateUserWithEmailAndPassword(formData.email, formData.password);
         const uid = cred.user.uid;
+        // Best-effort profile write; never block auth on Firestore errors (rules/network)
         try {
           await setUserProfile(uid, {
             uid,
@@ -225,8 +234,9 @@ const Login: React.FC = () => {
             displayName: formData.name,
             role: formData.role,
           });
-  } catch (pfErr: unknown) {
-          if (!isOfflineError(pfErr)) throw pfErr;
+        } catch (pfErr: unknown) {
+          // Ignore all profile write errors to ensure signup completes on mobile/webview
+          try { console.warn('[signup] setUserProfile ignored error:', pfErr); } catch {}
         }
         // Populate UI context
         login({ id: uid, name: formData.name || formData.email, email: formData.email, role: formData.role });
@@ -247,7 +257,7 @@ const Login: React.FC = () => {
     const uid = result.user.uid;
   let profile: UserProfile | null = null;
     try {
-  profile = await getUserProfile(uid);
+  profile = (await getUserProfile(uid)) as unknown as UserProfile | null;
   } catch (pfErr: unknown) {
   if (isOfflineError(pfErr)) {
     const u = result.user;
@@ -296,7 +306,7 @@ const Login: React.FC = () => {
       }
       let profile: UserProfile | null = null;
       try {
-        profile = await getUserProfile(uid);
+        profile = (await getUserProfile(uid)) as unknown as UserProfile | null;
       } catch (pfErr: unknown) {
         if (!isOfflineError(pfErr)) throw pfErr;
       }

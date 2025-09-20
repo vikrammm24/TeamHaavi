@@ -3,7 +3,13 @@ import { motion, useScroll, useTransform } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { ArrowRight, Users, MapPin, Zap, Shield, Smartphone, BarChart3, Play, Star } from 'lucide-react';
 import Navbar from '../components/Navbar';
+import Reveal from '../components/ui/Reveal';
+import Tilt from '../components/ui/Tilt';
 import Footer from '../components/Footer';
+import ScrollingIcons from '../components/ScrollingIcons';
+import LottiePlayer from '../components/ui/Lottie';
+import pulse from '../assets/lottie/pulse.json';
+import AnimatedIcon from '../components/ui/AnimatedIcon';
 
 const LandingPage: React.FC = () => {
   const navigate = useNavigate();
@@ -53,7 +59,7 @@ const LandingPage: React.FC = () => {
       <Navbar />
       
       {/* Hero Section */}
-      <section className="relative overflow-hidden bg-gradient-to-br from-blue-600 via-blue-700 to-blue-800 text-white min-h-screen flex items-center">
+  <section className="relative overflow-hidden brand-hero text-white min-h-screen flex items-center">
         {/* Animated Background Elements */}
         <div className="absolute inset-0">
           <motion.div 
@@ -131,7 +137,7 @@ const LandingPage: React.FC = () => {
               transition={{ duration: 1 }}
               className="mb-8"
             >
-              <div className="inline-flex items-center space-x-3 bg-white bg-opacity-10 backdrop-blur-sm rounded-full px-6 py-3 mb-6">
+              <div className="inline-flex items-center space-x-3 brand-badge backdrop-blur-sm rounded-full px-6 py-3 mb-6">
                 <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
                 <span className="text-sm font-medium">Unified Civic + Transport</span>
               </div>
@@ -141,31 +147,48 @@ const LandingPage: React.FC = () => {
               initial={{ opacity: 0, y: 50 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8 }}
-              className="text-6xl md:text-8xl font-bold mb-6 leading-tight"
+              className="text-6xl md:text-8xl font-extrabold mb-8 leading-tight cc-text-stronger"
             >
               <span className="cc-gradient-text">City</span><span className="text-green-400 drop-shadow-[0_0_6px_rgba(34,197,94,0.8)]">Connect</span>
             </motion.h1>
             
-            <motion.p
+            <motion.div
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8, delay: 0.2 }}
-              className="text-xl md:text-2xl text-blue-100 mb-8 max-w-3xl mx-auto leading-relaxed"
+              className="text-base md:text-lg text-blue-50/95 mb-10 max-w-4xl mx-auto leading-relaxed"
             >
-              An AI-powered platform that unifies citizen engagement, civic issue management, and smart transportation into one seamless system. Residents report geo-tagged issues with images, receive real-time updates, and participate through polls and feedback. City officials use an IoT and CCTV-integrated dashboard for automated detection and resource allocation. AI optimizes public transport (schedules, overcrowding) and enables smart ticketing. A built-in AI assistant delivers multilingual support, improving accessibility and enabling efficient, data-driven governance.
-            </motion.p>
+              <ul className="grid md:grid-cols-2 gap-3">
+                <li className="flex items-start gap-3 cc-hero-bullet rounded-lg px-4 py-3">
+                  <MapPin className="w-5 h-5 text-white mt-0.5" />
+                  <span>Report geo-tagged issues with images; get real-time updates.</span>
+                </li>
+                <li className="flex items-start gap-3 cc-hero-bullet rounded-lg px-4 py-3">
+                  <Shield className="w-5 h-5 text-white mt-0.5" />
+                  <span>IoT + CCTV dashboard automates detection and routing.</span>
+                </li>
+                <li className="flex items-start gap-3 cc-hero-bullet rounded-lg px-4 py-3">
+                  <Smartphone className="w-5 h-5 text-white mt-0.5" />
+                  <span>Multilingual AI assistant for accessible city services.</span>
+                </li>
+                <li className="flex items-start gap-3 cc-hero-bullet rounded-lg px-4 py-3">
+                  <BarChart3 className="w-5 h-5 text-white mt-0.5" />
+                  <span>Data-driven transport optimization and smart ticketing.</span>
+                </li>
+              </ul>
+            </motion.div>
             
             <motion.div
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8, delay: 0.4 }}
-              className="flex flex-col sm:flex-row gap-4 justify-center items-center"
+              className="flex flex-col sm:flex-row gap-5 justify-center items-center"
             >
               <motion.button
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 onClick={() => navigate('/login')}
-                className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white px-8 py-4 rounded-xl font-semibold text-lg flex items-center space-x-2 shadow-lg hover:shadow-xl transition-all duration-300"
+                className="bg-green-500 hover:bg-green-600 text-white px-8 py-4 rounded-xl font-semibold text-lg flex items-center space-x-2 shadow-lg hover:shadow-xl transition-all duration-300"
               >
                 <span>Get Started</span>
                 <ArrowRight className="w-5 h-5" />
@@ -175,7 +198,7 @@ const LandingPage: React.FC = () => {
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 onClick={() => navigate('/features')}
-                className="bg-white bg-opacity-10 backdrop-blur-sm hover:bg-opacity-20 text-white px-8 py-4 rounded-xl font-semibold text-lg flex items-center space-x-2 border border-white border-opacity-30 transition-all duration-300"
+                className="brand-chip backdrop-blur-sm hover:opacity-90 text-white px-8 py-4 rounded-xl font-semibold text-lg flex items-center space-x-2 border border-white/20 transition-all duration-300"
               >
                 <Play className="w-5 h-5" />
                 <span>Explore Features</span>
@@ -187,20 +210,29 @@ const LandingPage: React.FC = () => {
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8, delay: 0.6 }}
-              className="flex justify-center items-center space-x-8 mt-12"
+              className="flex justify-center items-center space-x-10 mt-14"
             >
-              <div className="text-center">
-                <div className="text-3xl font-bold text-green-400">10K+</div>
+              <div className="text-center relative">
+                <div className="absolute -right-6 -top-6 w-8 h-8 opacity-70 pointer-events-none mix-blend-screen">
+                  <LottiePlayer animationData={pulse} className="w-full h-full" />
+                </div>
+                <div className="text-3xl font-bold" style={{ color: 'var(--bg2)' }}>10K+</div>
                 <div className="text-sm text-blue-200">Active Users</div>
               </div>
               <div className="w-px h-12 bg-white bg-opacity-30"></div>
-              <div className="text-center">
-                <div className="text-3xl font-bold text-green-400">500+</div>
+              <div className="text-center relative">
+                <div className="absolute -right-6 -top-6 w-8 h-8 opacity-70 pointer-events-none mix-blend-screen">
+                  <LottiePlayer animationData={pulse} className="w-full h-full" />
+                </div>
+                <div className="text-3xl font-bold" style={{ color: 'var(--bg2)' }}>500+</div>
                 <div className="text-sm text-blue-200">Issues Resolved</div>
               </div>
               <div className="w-px h-12 bg-white bg-opacity-30"></div>
-              <div className="text-center">
-                <div className="text-3xl font-bold text-green-400">95%</div>
+              <div className="text-center relative">
+                <div className="absolute -right-6 -top-6 w-8 h-8 opacity-70 pointer-events-none mix-blend-screen">
+                  <LottiePlayer animationData={pulse} className="w-full h-full" />
+                </div>
+                <div className="text-3xl font-bold" style={{ color: 'var(--bg2)' }}>95%</div>
                 <div className="text-sm text-blue-200">Satisfaction Rate</div>
               </div>
             </motion.div>
@@ -208,62 +240,60 @@ const LandingPage: React.FC = () => {
         </div>
       </section>
 
-      {/* Features Section */}
+  {/* Scrolling Icons Band (moved up for visibility) */}
+  <ScrollingIcons />
+
+  {/* Features Section */}
       <section className="py-20 bg-gradient-to-b from-gray-50 to-white">
         <div className="container mx-auto px-4">
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            className="text-center mb-16"
-          >
+          <Reveal className="text-center mb-16">
             <h2 className="text-4xl md:text-5xl font-bold text-gray-800 mb-4">
               Smart City Solutions
             </h2>
             <p className="text-xl text-gray-600 max-w-2xl mx-auto">
               Revolutionizing urban management through technology, transparency, and community engagement
             </p>
-          </motion.div>
+          </Reveal>
           
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
             {features.map((feature, index) => (
-              <motion.div
-                key={index}
-                initial={{ opacity: 0, y: 50 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                whileHover={{ y: -10, scale: 1.02 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.5, delay: index * 0.1 }}
-                className="bg-white p-8 rounded-xl shadow-lg hover:shadow-2xl transition-all duration-300 group"
-              >
-                <motion.div 
-                  whileHover={{ scale: 1.1, rotate: 5 }}
-                  className="text-blue-600 mb-4 group-hover:text-green-500 transition-colors duration-300"
+              <Reveal key={index} delay={index * 0.06}>
+                <Tilt glare className="rounded-xl">
+                <motion.div
+                  whileHover={{ y: -10, scale: 1.0 }}
+                  className="bg-white p-8 rounded-xl shadow-lg hover:shadow-2xl transition-all duration-300 group"
                 >
-                  {feature.icon}
+                <motion.div 
+                  whileHover={{ scale: 1.06, rotate: 3 }}
+                  className="mb-4"
+                >
+                  <AnimatedIcon>
+                    <span className="text-white">
+                      {feature.icon}
+                    </span>
+                  </AnimatedIcon>
                 </motion.div>
                 <h3 className="text-xl font-semibold text-gray-800 mb-3">{feature.title}</h3>
                 <p className="text-gray-600">{feature.description}</p>
-              </motion.div>
+                </motion.div>
+                </Tilt>
+              </Reveal>
             ))}
           </div>
         </div>
       </section>
 
+  
+
       {/* Innovation Section */}
       <section className="py-20 bg-white">
         <div className="container mx-auto px-4">
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            className="text-center mb-12"
-          >
+          <Reveal className="text-center mb-12">
             <h2 className="text-4xl md:text-5xl font-bold text-gray-800 mb-4">Innovation</h2>
             <p className="text-lg text-gray-600 max-w-3xl mx-auto">
               Unified Civic + Transport System • AI-Powered Civic Issue Detection • Dynamic Public Transport Optimization • ChatGPT-like AI Agent • Gamified Citizen Participation
             </p>
-          </motion.div>
+          </Reveal>
           <div className="grid md:grid-cols-2 lg:grid-cols-5 gap-6 text-sm">
             {[
               {
@@ -287,17 +317,12 @@ const LandingPage: React.FC = () => {
                 desc: 'Leaderboards, badges, and points to boost engagement.'
               }
             ].map((i, idx) => (
-              <motion.div
-                key={idx}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: idx * 0.05 }}
-                className="bg-gray-50 p-6 rounded-xl border hover:shadow-lg transition"
-              >
+              <Reveal key={idx} delay={idx * 0.05}>
+                <div className="bg-gray-50 p-6 rounded-xl border hover:shadow-lg transition">
                 <div className="font-semibold text-gray-800 mb-2">{i.title}</div>
                 <div className="text-gray-600">{i.desc}</div>
-              </motion.div>
+                </div>
+              </Reveal>
             ))}
           </div>
         </div>
@@ -345,24 +370,19 @@ const LandingPage: React.FC = () => {
                 desc: 'Seamless ticketing integrated with transport optimization.'
               }
             ].map((i, idx) => (
-              <motion.div
-                key={idx}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: idx * 0.05 }}
-                className="bg-white p-8 rounded-xl shadow-lg hover:shadow-2xl border transition"
-              >
+              <Reveal key={idx} delay={idx * 0.05}>
+                <div className="bg-white p-8 rounded-xl shadow-lg hover:shadow-2xl border transition">
                 <h3 className="text-xl font-semibold text-gray-800 mb-3">{i.title}</h3>
                 <p className="text-gray-600">{i.desc}</p>
-              </motion.div>
+                </div>
+              </Reveal>
             ))}
           </div>
         </div>
       </section>
 
       {/* Stats Section */}
-      <section className="py-20 bg-gradient-to-r from-blue-600 via-blue-700 to-blue-800 text-white relative overflow-hidden">
+  <section className="py-20 brand-hero text-white relative overflow-hidden">
         <div className="absolute inset-0 bg-black opacity-10"></div>
         <div className="container mx-auto px-4">
           <div className="grid md:grid-cols-4 gap-8 text-center">
@@ -381,8 +401,11 @@ const LandingPage: React.FC = () => {
                 transition={{ duration: 0.5, delay: index * 0.1 }}
                 className="relative z-10"
               >
-                <motion.div className="text-4xl md:text-5xl font-bold text-green-400 mb-2">{stat.number}</motion.div>
-                <div className="text-blue-100 font-medium">{stat.label}</div>
+                <div className="absolute -right-4 -top-4 w-10 h-10 opacity-70 pointer-events-none mix-blend-screen">
+                  <LottiePlayer animationData={pulse} className="w-full h-full" />
+                </div>
+                <motion.div className="text-4xl md:text-5xl font-bold mb-2" style={{ color: 'var(--bg2)', textShadow: '0 1px 6px rgba(0,0,0,0.18)' }}>{stat.number}</motion.div>
+                <div className="text-white/80 font-medium">{stat.label}</div>
               </motion.div>
             ))}
           </div>

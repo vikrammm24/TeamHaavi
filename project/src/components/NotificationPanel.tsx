@@ -97,11 +97,14 @@ const NotificationPanel: React.FC<NotificationPanelProps> = ({ onClose }) => {
         initial={{ opacity: 0, y: -10, scale: 0.95 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         exit={{ opacity: 0, y: -10, scale: 0.95 }}
-        className="fixed top-20 right-4 w-[22rem] max-w-[92vw] rounded-2xl border z-[2147483637] max-h-[72vh] flex flex-col overflow-hidden isolate backdrop-blur-xl bg-white/75 dark:bg-[#1f2937e6] border-white/50 shadow-[0_8px_28px_-4px_rgba(0,0,0,0.25),0_0_0_1px_rgba(255,255,255,0.4)]"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="cc-notifications-title"
+        className="fixed top-20 right-4 w-[22rem] max-w-[92vw] rounded-2xl border z-[2147483637] max-h-[72vh] flex flex-col overflow-hidden isolate backdrop-blur-xl bg-white/75 dark:bg-[#1f2937e6] border-white/50 shadow-[0_8px_28px_-4px_rgba(0,0,0,0.25),_0_0_0_1px_rgba(255,255,255,0.4)]"
       >
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b border-white/40 bg-gradient-to-r from-blue-500/10 via-cyan-400/10 to-green-400/10 backdrop-blur-sm">
-        <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100 flex items-center gap-2">
+        <h3 id="cc-notifications-title" className="text-lg font-semibold text-gray-800 dark:text-gray-100 flex items-center gap-2">
           <span className="inline-block w-2 h-2 rounded-full bg-green-400 animate-pulse" />
           Notifications
         </h3>

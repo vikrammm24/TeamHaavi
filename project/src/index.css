@@ -22,6 +22,170 @@
   --bg3: #3b82f6; /* blue-500 */
   --bg4: #14b8a6; /* teal-500 */
 }
+
+/* Accessibility: screen-reader only utility (if not using Tailwind's built-in) */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* High Contrast Mode */
+.high-contrast {
+  background: black !important;
+  color: white !important;
+}
+
+.high-contrast * {
+  background: black !important;
+  color: white !important;
+  border-color: white !important;
+}
+
+.high-contrast .bg-white {
+  background: black !important;
+}
+
+.high-contrast .text-gray-900,
+.high-contrast .text-gray-800,
+.high-contrast .text-gray-700,
+.high-contrast .text-gray-600 {
+  color: white !important;
+}
+
+.high-contrast .bg-gray-100,
+.high-contrast .bg-gray-50 {
+  background: #333 !important;
+}
+
+.high-contrast button {
+  border: 2px solid white !important;
+}
+
+.high-contrast input,
+.high-contrast textarea,
+.high-contrast select {
+  background: black !important;
+  color: white !important;
+  border: 2px solid white !important;
+}
+
+/* Large Font Mode */
+.font-large {
+  font-size: 1.25rem !important;
+}
+
+.font-large h1 {
+  font-size: 2.5rem !important;
+}
+
+.font-large h2 {
+  font-size: 2rem !important;
+}
+
+.font-large h3 {
+  font-size: 1.75rem !important;
+}
+
+.font-large p,
+.font-large span,
+.font-large div {
+  font-size: 1.25rem !important;
+}
+
+.font-large button {
+  font-size: 1.25rem !important;
+  padding: 0.75rem 1.5rem !important;
+}
+
+.font-large input,
+.font-large textarea,
+.font-large select {
+  font-size: 1.25rem !important;
+  padding: 0.75rem !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+  /* Keep marquee looping even with reduced motion preference */
+  .marquee__track {
+    animation-name: marquee-scroll !important;
+    animation-duration: var(--marquee-duration, 18s) !important;
+    animation-iteration-count: infinite !important;
+    animation-timing-function: linear !important;
+  }
+}
+
+/* Marquee animation primitives */
+:root {
+  --marquee-duration: 18s;
+}
+
+@keyframes marquee-scroll {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+.marquee {
+  position: relative;
+  overflow: hidden;
+  mask-image: linear-gradient(90deg, transparent, #000 10%, #000 90%, transparent);
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 10%, #000 90%, transparent);
+}
+
+.marquee__track {
+  display: flex;
+  width: 200%;
+  will-change: transform;
+  animation-name: marquee-scroll;
+  animation-duration: var(--marquee-duration, 18s);
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+
+.marquee__track.pause-on-hover:hover {
+  animation-play-state: paused;
+}
+
+.marquee__track.reverse {
+  animation-direction: reverse;
+}
+
+.marquee__item {
+  flex: 0 0 auto;
+}
+
+/* Animated icon primitives */
+@keyframes cc-spin-slow { to { transform: rotate(360deg); } }
+@keyframes cc-bob { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
+@keyframes cc-orbit {
+  0% { transform: rotate(0deg) translateX(10px) rotate(0deg); }
+  100% { transform: rotate(360deg) translateX(10px) rotate(-360deg); }
+}
+.cc-spin-slow { animation: cc-spin-slow 8s linear infinite; }
+.cc-bob { animation: cc-bob 3s ease-in-out infinite; }
+.cc-orbit { animation: cc-orbit 2.8s linear infinite; }
+.cc-glow { box-shadow: 0 0 0 2px rgba(255,255,255,0.08), 0 6px 18px rgba(0,0,0,0.15); }
+.cc-ring {
+  position: absolute; inset: -6px; border-radius: 9999px; pointer-events: none;
+  background: conic-gradient(from 0deg, var(--bg2), transparent 40%, transparent 60%, var(--bg3));
+  filter: blur(0.4px); opacity: .35;
+}
+
+/* Hide scrollbar while keeping scroll */
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
 [data-theme="dark"] {
   --cc-surface: 23 28 38;
   --cc-surface-alt: 31 41 55;
@@ -33,6 +197,32 @@
   --bg3: #2563eb;
   --bg4: #9333ea;
   color-scheme: dark;
+}
+
+/* Brand palettes: override background accent variables via data-brand */
+[data-brand="ocean"] {
+  --bg1: #0ea5e9; /* sky-500 */
+  --bg2: #22c55e; /* green-500 */
+  --bg3: #3b82f6; /* blue-500 */
+  --bg4: #14b8a6; /* teal-500 */
+}
+[data-brand="sunset"] {
+  --bg1: #f59e0b; /* amber-500 */
+  --bg2: #ef4444; /* red-500 */
+  --bg3: #f97316; /* orange-500 */
+  --bg4: #ec4899; /* pink-500 */
+}
+[data-brand="forest"] {
+  --bg1: #22c55e; /* green-500 */
+  --bg2: #16a34a; /* green-600 */
+  --bg3: #059669; /* emerald-600 */
+  --bg4: #65a30d; /* lime-600 */
+}
+[data-brand="royal"] {
+  --bg1: #8b5cf6; /* violet-500 */
+  --bg2: #6366f1; /* indigo-500 */
+  --bg3: #0ea5e9; /* sky-500 */
+  --bg4: #f59e0b; /* amber-500 */
 }
 
 html, body, #root { height: 100%; }
@@ -95,23 +285,23 @@ body::before {
 }
 
 /* Colorful theme overrides applied across the site */
-/* Primary buttons: turn blue solids into gradients */
+/* Primary buttons: turn blue solids into brand-driven gradients */
 .bg-blue-600 {
-  background-image: linear-gradient(135deg, #2563eb 0%, #06b6d4 50%, #22c55e 100%) !important;
+  background-image: linear-gradient(135deg, var(--bg3) 0%, var(--bg1) 50%, var(--bg2) 100%) !important;
   background-color: transparent !important;
 }
 .hover\:bg-blue-700:hover { filter: brightness(0.95); }
 
-/* Secondary actions (greens) into juicy gradients */
+/* Secondary actions (greens) into brand-driven gradients */
 .bg-green-500 {
-  background-image: linear-gradient(135deg, #10b981 0%, #22c55e 50%, #84cc16 100%) !important;
+  background-image: linear-gradient(135deg, var(--bg2) 0%, var(--bg4) 50%, var(--bg1) 100%) !important;
   background-color: transparent !important;
 }
 .hover\:bg-green-600:hover { filter: brightness(0.95); }
 
-/* Improve text accent visibility */
-.text-blue-600 { color: #1d4ed8 !important; }
-.text-green-600 { color: #15803d !important; }
+/* Improve text accent visibility with brand accents */
+.text-blue-600 { color: var(--bg3) !important; }
+.text-green-600 { color: var(--bg2) !important; }
 
 /* Make cards and surfaces a bit glassy to let the bg glow seep through */
 .bg-white {
@@ -169,4 +359,120 @@ input:focus, textarea:focus, select:focus { outline: 2px solid rgba(59,130,246,.
 @keyframes cc-skeleton-shimmer {
   0% { background-position: 200% 0; }
   100% { background-position: -200% 0; }
+}
+
+/* Brand-aware helpers to apply theme across pages */
+.brand-hero {
+  /* Multi-stop gradient driven by brand vars */
+  background-image:
+    linear-gradient(135deg,
+      color-mix(in oklab, var(--bg3) 85%, black 15%),
+      color-mix(in oklab, var(--bg1) 85%, black 15%),
+      color-mix(in oklab, var(--bg2) 85%, black 15%)
+    );
+}
+[data-theme="dark"] .brand-hero {
+  background-image:
+    linear-gradient(135deg,
+      color-mix(in oklab, var(--bg3) 65%, black 35%),
+      color-mix(in oklab, var(--bg1) 65%, black 35%),
+      color-mix(in oklab, var(--bg2) 65%, black 35%)
+    );
+}
+
+.brand-chip {
+  background-image: linear-gradient(135deg, var(--bg3), var(--bg2));
+  color: #fff;
+}
+.brand-badge {
+  background-image: linear-gradient(135deg,
+    color-mix(in oklab, var(--bg3) 38%, transparent),
+    color-mix(in oklab, var(--bg1) 38%, transparent)
+  );
+  color: #fff;
+  border: 1px solid rgba(255,255,255,0.22);
+}
+.brand-icon {
+  background-image: linear-gradient(135deg, var(--bg3), var(--bg1));
+  color: #fff;
+}
+
+/* Small utilities for brand integration */
+.text-brand { color: var(--bg3) !important; }
+.text-brand-2 { color: var(--bg2) !important; }
+.hover-brand:hover { color: var(--bg3) !important; }
+.hover-brand-bg:hover { background: color-mix(in oklab, var(--bg3) 12%, transparent); }
+
+/* Readability helpers over colorful backgrounds */
+.cc-text-contrast {
+  color: #fff !important;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.45);
+}
+.cc-text-soft-contrast {
+  color: rgba(255,255,255,0.95) !important;
+  text-shadow: 0 1px 1.5px rgba(0,0,0,0.35);
+}
+
+/* Theme-aware text color helper */
+.cc-text-theme {
+  color: rgb(var(--cc-text)) !important;
+}
+/* Add a subtle lift in dark mode for readability over glows */
+[data-theme="dark"] .cc-text-theme {
+  text-shadow: 0 1px 1px rgba(0,0,0,0.25);
+}
+
+/* Stronger readability on vibrant gradients */
+.cc-text-strong {
+  color: #fff !important;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  text-shadow:
+    0 2px 10px rgba(0,0,0,0.22),
+    0 1px 4px rgba(0,0,0,0.28),
+    0 0 1px rgba(0,0,0,0.6);
+}
+.cc-text-stronger {
+  color: #fff !important;
+  font-weight: 900;
+  letter-spacing: -0.01em;
+  text-shadow:
+    0 3px 14px rgba(0,0,0,0.28),
+    0 2px 6px rgba(0,0,0,0.35),
+    0 0 2px rgba(0,0,0,0.7);
+}
+
+/* Hero bullets readability chips */
+.cc-hero-bullet {
+  background: rgba(0,0,0,0.25);
+  border: 1px solid rgba(255,255,255,0.2);
+  color: #fff;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.08);
+}
+
+/* Navbar active and hover emphasis */
+.cc-nav-link {
+  position: relative;
+}
+.cc-nav-link::after {
+  content: '';
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: 6px;
+  height: 2px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, var(--bg3), var(--bg2));
+  transform: scaleX(0);
+  transform-origin: center;
+  transition: transform var(--cc-transition);
+}
+.cc-nav-link:hover::after {
+  transform: scaleX(1);
+}
+.cc-nav-link-active {
+  background: color-mix(in oklab, var(--bg3) 12%, transparent);
+}
+.cc-nav-link-active::after {
+  transform: scaleX(1);
 }

@@ -1,5 +1,5 @@
 import { auth, db } from "./firebase.ts";
-import { Capacitor } from '@capacitor/core';
+import { Capacitor } from '../../shims/capacitor-core';
 import { nativeGoogleSignIn, nativeGoogleSignOut, isNativeGoogleAvailable } from './googleNative.ts';
 import {
   createUserWithEmailAndPassword,
@@ -44,9 +44,9 @@ async function upsertUser(user: User | null) {
       await updateDoc(ref, base);
     }
   } catch (err) {
-    if (!isOfflineError(err)) {
-      throw err;
-    }
+    // Never block auth on profile upsert; log and continue even for permission or other errors
+    // This ensures email/password signup works on mobile even if Firestore rules/network block writes
+    try { console.warn('[auth] upsertUser ignored error:', err); } catch {}
   }
 }
 
@@ -81,7 +81,13 @@ export const doSignInWithGoogle = async (): Promise<UserCredential> => {
       if (redirectResult) {
         result = redirectResult as UserCredential;
       } else {
-        // Try popup first
+        // On native-like environments (file://, some WebViews), prefer redirect immediately
+        if (typeof window !== 'undefined' && window.location.protocol === 'file:') {
+          try { sessionStorage.setItem('cc:google:mode', 'login'); } catch {}
+          await signInWithRedirect(auth, provider);
+          return new Promise(() => {}) as unknown as UserCredential;
+        }
+        // Else try popup first
         result = await signInWithPopup(auth, provider);
       }
     } catch (e) {
@@ -89,7 +95,7 @@ export const doSignInWithGoogle = async (): Promise<UserCredential> => {
       // Fallback to redirect if popup blocked or storage partitioning prevents popup flow
       if (msg.includes('popup') || msg.includes('third-party') || msg.includes('blocked')) {
         // Preserve intent
-  try { sessionStorage.setItem('cc:google:mode', 'login'); } catch { /* ignore */ }
+        try { sessionStorage.setItem('cc:google:mode', 'login'); } catch { /* ignore */ }
         await signInWithRedirect(auth, provider);
         // This will navigate away; return a pending promise to avoid further processing
         return new Promise(() => {}) as unknown as UserCredential;
@@ -136,12 +142,17 @@ export const doSignUpWithGoogle = async (): Promise<UserCredential> => {
       if (redirectResult) {
         result = redirectResult as UserCredential;
       } else {
+        if (typeof window !== 'undefined' && window.location.protocol === 'file:') {
+          try { sessionStorage.setItem('cc:google:mode', 'signup'); } catch {}
+          await signInWithRedirect(auth, provider);
+          return new Promise(() => {}) as unknown as UserCredential;
+        }
         result = await signInWithPopup(auth, provider);
       }
     } catch (e) {
       const msg = String((e as { message?: string } | undefined)?.message || '').toLowerCase();
       if (msg.includes('popup') || msg.includes('third-party') || msg.includes('blocked')) {
-  try { sessionStorage.setItem('cc:google:mode', 'signup'); } catch { /* ignore */ }
+        try { sessionStorage.setItem('cc:google:mode', 'signup'); } catch { /* ignore */ }
         await signInWithRedirect(auth, provider);
         return new Promise(() => {}) as unknown as UserCredential;
       }

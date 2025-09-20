@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import DashboardLayout from '../components/DashboardLayout';
 import api from '../api/config';
 import BadgeGallery from '../components/BadgeGallery';
+import GamificationSummary from '../components/GamificationSummary';
 
 interface LeaderEntry { id: string; user: string; points: number; badges: string[] }
 
@@ -26,8 +27,12 @@ const Leaderboard: React.FC = () => {
   }, []);
 
   return (
-    <DashboardLayout title="Leaderboard">
+    <DashboardLayout title="Leaderboard" hideSidebar>
       <div className="space-y-8">
+        <div className="bg-white rounded-xl shadow p-6">
+          <h2 className="text-2xl font-bold mb-4">Daily Task</h2>
+          <GamificationSummary />
+        </div>
         <div className="bg-white rounded-xl shadow p-6">
           <h2 className="text-2xl font-bold mb-4">Top Contributors</h2>
           {loading && <div className="text-gray-500">Loading...</div>}

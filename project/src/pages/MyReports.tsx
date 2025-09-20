@@ -1,10 +1,11 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import DashboardLayout from '../components/DashboardLayout';
 import IssueCard from '../components/IssueCard';
-import api from '../api/config';
 import { Plus, Filter } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { fetchMyIssues, normalizeIssue, SECUNDERABAD, haversineKm } from '../api/dataSources';
+import { rtdb, auth } from '../components/firebase/firebase';
+import { ref as dbRef, onValue } from 'firebase/database';
 
 export type Issue = {
   id: string;
@@ -79,6 +80,18 @@ const MyReports: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [issues, setIssues] = useState<Issue[]>([]);
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'in-progress' | 'resolved'>('all');
+  const location = useLocation();
+
+  // Sync status filter from query params, e.g., ?status=resolved
+  useEffect(() => {
+    try {
+      const qs = new URLSearchParams(location.search);
+      const status = qs.get('status') as 'pending' | 'in-progress' | 'resolved' | null;
+      if (status === 'pending' || status === 'in-progress' || status === 'resolved') {
+        setStatusFilter(status);
+      }
+    } catch { /* ignore */ }
+  }, [location.search]);
 
   useEffect(() => {
     let mounted = true;
@@ -103,7 +116,20 @@ const MyReports: React.FC = () => {
       }
     };
     pull();
-    return () => { mounted = false; };
+    // Also subscribe to user's reports in RTDB in real-time
+    const user = auth.currentUser;
+    let unsubscribe: (() => void) | undefined;
+    if (user) {
+      const myRef = dbRef(rtdb, `reports/${user.uid}`);
+      unsubscribe = onValue(myRef, (snap) => {
+        const v = snap.val() || {};
+        const arr = Object.entries(v).map(([id, val]: any) => normalizeIssue({ id, createdAt: val?.timestamp, ...val }));
+        // Sort newest first by createdAt
+        const sorted = arr.sort((a: any, b: any) => (b.createdAt?.getTime?.() || 0) - (a.createdAt?.getTime?.() || 0));
+        if (mounted) setIssues(normalizeIssues(sorted));
+      });
+    }
+    return () => { mounted = false; if (unsubscribe) unsubscribe(); };
   }, []);
 
   const filtered = useMemo(() => {

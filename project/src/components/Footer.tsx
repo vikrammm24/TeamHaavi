@@ -1,28 +1,44 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Mail, Phone, MapPin, Facebook, Twitter, Instagram, Linkedin } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 const Footer: React.FC = () => {
   const socialLinks = [
-    { icon: <Facebook className="w-5 h-5" />, href: '#', label: 'Facebook' },
-    { icon: <Twitter className="w-5 h-5" />, href: '#', label: 'Twitter' },
-    { icon: <Instagram className="w-5 h-5" />, href: '#', label: 'Instagram' },
-    { icon: <Linkedin className="w-5 h-5" />, href: '#', label: 'LinkedIn' },
+    { icon: <Facebook className="w-5 h-5" />, href: 'https://facebook.com/', label: 'Facebook', external: true },
+    { icon: <Twitter className="w-5 h-5" />, href: 'https://twitter.com/', label: 'Twitter', external: true },
+    { icon: <Instagram className="w-5 h-5" />, href: 'https://instagram.com/', label: 'Instagram', external: true },
+    { icon: <Linkedin className="w-5 h-5" />, href: 'https://linkedin.com/', label: 'LinkedIn', external: true },
   ];
 
-  const footerLinks = [
+  const footerLinks: Array<{ title: string; links: Array<{ label: string; href: string; external?: boolean }> }> = [
     {
       title: 'Platform',
-      links: ['For Citizens', 'For Professionals', 'For Authorities', 'API Documentation']
+      links: [
+  { label: 'For Citizens', href: '/for-citizens' },
+  { label: 'For Professionals', href: '/for-professionals' },
+  { label: 'For Authorities', href: '/for-authorities' },
+  { label: 'API Documentation', href: '/api-docs' },
+      ],
     },
     {
       title: 'Support',
-      links: ['Help Center', 'Contact Us', 'System Status', 'Community Guidelines']
+      links: [
+  { label: 'Help Center', href: '/help' },
+        { label: 'Contact Us', href: 'mailto:haavi@cityconnect.com', external: true },
+  { label: 'System Status', href: '/status' },
+  { label: 'Community Guidelines', href: '/community-guidelines' },
+      ],
     },
     {
       title: 'Company',
-      links: ['About Us', 'Careers', 'Press', 'Privacy Policy']
-    }
+      links: [
+  { label: 'About Us', href: '/about' },
+  { label: 'Careers', href: '/careers' },
+  { label: 'Press', href: '/press' },
+  { label: 'Privacy Policy', href: '/privacy' },
+      ],
+    },
   ];
 
   return (
@@ -48,10 +64,12 @@ const Footer: React.FC = () => {
               Empowering citizens, connecting communities, building smarter cities together through technology and collaboration.
             </p>
             <div className="flex space-x-4">
-              {socialLinks.map((social, index) => (
+              {socialLinks.map((social) => (
                 <motion.a
                   key={social.label}
                   href={social.href}
+                  target={social.external ? '_blank' : undefined}
+                  rel={social.external ? 'noopener noreferrer' : undefined}
                   whileHover={{ scale: 1.1, y: -2 }}
                   className="w-10 h-10 bg-gray-800 rounded-lg flex items-center justify-center hover:bg-blue-600 transition-colors duration-300"
                   aria-label={social.label}
@@ -73,14 +91,25 @@ const Footer: React.FC = () => {
             >
               <h3 className="text-lg font-semibold mb-4">{section.title}</h3>
               <ul className="space-y-2">
-                {section.links.map((link, linkIndex) => (
-                  <motion.li key={link}>
-                    <a
-                      href="#"
-                      className="text-gray-300 hover:text-white transition-colors duration-300"
-                    >
-                      {link}
-                    </a>
+                {section.links.map((l) => (
+                  <motion.li key={l.label}>
+                    {l.external ? (
+                      <a
+                        href={l.href}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-gray-300 hover:text-white transition-colors duration-300"
+                      >
+                        {l.label}
+                      </a>
+                    ) : (
+                      <Link
+                        to={l.href}
+                        className="text-gray-300 hover:text-white transition-colors duration-300"
+                      >
+                        {l.label}
+                      </Link>
+                    )}
                   </motion.li>
                 ))}
               </ul>
@@ -97,18 +126,18 @@ const Footer: React.FC = () => {
           className="border-t border-gray-800 pt-8 mt-8"
         >
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="flex items-center space-x-3">
-              <Mail className="w-5 h-5 text-blue-400" />
-              <span className="text-gray-300">haavi@cityconnect.com</span>
-            </div>
-            <div className="flex items-center space-x-3">
-              <Phone className="w-5 h-5 text-blue-400" />
-              <span className="text-gray-300">+91 XXXXXXX233</span>
-            </div>
-            <div className="flex items-center space-x-3">
-              <MapPin className="w-5 h-5 text-blue-400" />
-              <span className="text-gray-300">India</span>
-            </div>
+            <a href="mailto:haavi@cityconnect.com" className="flex items-center space-x-3 group">
+              <Mail className="w-5 h-5 text-blue-400 group-hover:text-blue-300" />
+              <span className="text-gray-300 group-hover:text-white transition-colors">haavi@cityconnect.com</span>
+            </a>
+            <a href="tel:+910000000233" className="flex items-center space-x-3 group">
+              <Phone className="w-5 h-5 text-blue-400 group-hover:text-blue-300" />
+              <span className="text-gray-300 group-hover:text-white transition-colors">+91 XXXXXXX233</span>
+            </a>
+            <a href="https://maps.google.com/?q=India" target="_blank" rel="noopener noreferrer" className="flex items-center space-x-3 group">
+              <MapPin className="w-5 h-5 text-blue-400 group-hover:text-blue-300" />
+              <span className="text-gray-300 group-hover:text-white transition-colors">India</span>
+            </a>
           </div>
         </motion.div>
 

@@ -1,0 +1,66 @@
+[
+  {
+    "topic": "dashboard_authority",
+    "patterns": [
+      "^what is the authority dashboard$",
+      "authority dashboard|authority panel|admin dashboard",
+      "how does the authority dashboard work|authority features"
+    ],
+    "answers": {
+      "en": "The Authority Dashboard centralizes city operations: review citizen reports, assign professionals, monitor transport/sensors, post emergency broadcasts, and manage verifications. It’s accessible to users with the authority role.",
+      "hi": "प्राधिकरण डैशबोर्ड शहर के संचालन को केंद्रीकृत करता है: नागरिक शिकायतें देखें, पेशेवरों को असाइन करें, परिवहन/सेंसर मॉनिटर करें, आपातकालीन प्रसारण पोस्ट करें और सत्यापन प्रबंधित करें। यह authority रोल वाले उपयोगकर्ताओं के लिए है।",
+      "es": "El Panel de Autoridad centraliza operaciones: revisar reportes, asignar profesionales, monitorizar transporte/sensores, publicar alertas y gestionar verificaciones. Disponible para el rol de autoridad.",
+      "mr": "अथॉरिटी डॅशबोर्ड शहरातील कामकाज केंद्रीकृत करतो: नागरिकांच्या तक्रारी पाहा, व्यावसायिक नेमणी करा, परिवहन/सेन्सर मॉनिटर करा, आपत्कालीन प्रसारण आणि व्हेरिफिकेशन्स व्यवस्थापित करा. हे authority भूमिकेसाठी आहे.",
+      "te": "అథారిటీ డ్యాష్‌బోర్డ్ నగర కార్యకలాపాలను కేంద్రీకరిస్తుంది: పౌర రిపోర్టులు సమీక్షించండి, ప్రొఫెషనల్స్ కేటాయించండి, రవాణా/సెన్సార్లు మానిటర్ చేయండి, అత్యవసర ప్రసారాలు పోస్ట్ చేయండి, వెరిఫికేషన్లు నిర్వహించండి. ఇది authority పాత్రకు మాత్రమే.",
+      "fr": "Le tableau de bord Autorité centralise les opérations : examiner les signalements, affecter des professionnels, suivre transports/capteurs, publier des alertes et gérer les vérifications. Réservé au rôle autorité."
+    }
+  },
+  {
+    "topic": "dashboard_professional",
+    "patterns": [
+      "^what is the professional dashboard$",
+      "professional dashboard|pro dashboard|service provider dashboard",
+      "how does the professional dashboard work|professional features"
+    ],
+    "answers": {
+      "en": "The Professional Dashboard helps verified providers track assigned jobs, view issue details and locations, update status, and complete tasks to earn points and reputation.",
+      "hi": "प्रोफेशनल डैशबोर्ड सत्यापित प्रदाताओं को असाइन किए गए काम ट्रैक करने, विवरण/लोकेशन देखने, स्टेटस अपडेट करने और कार्य पूरा कर अंक व प्रतिष्ठा अर्जित करने में मदद करता है।",
+      "es": "El Panel Profesional permite a proveedores ver trabajos asignados, detalles/ubicaciones, actualizar estado y completar tareas para ganar puntos y reputación.",
+      "mr": "प्रोफेशनल डॅशबोर्ड सत्यापित पुरवठादारांना नेमलेली कामे ट्रॅक करणे, तपशील/लोकेशन पाहणे, स्टेटस अपडेट करणे आणि गुण/प्रतिष्ठा मिळवण्यासाठी मदत करतो.",
+      "te": "ప్రొఫెషనల్ డ్యాష్‌బోర్డ్ ధృవీకరించిన ప్రొవైడర్లకు కేటాయించిన పనులను ట్రాక్ చేయడం, వివరాలు/స్థానాలు చూడడం, స్థితి నవీకరించడం, పనులను పూర్తి చేసి పాయింట్లు/ప్రతిష్ట పొందడంలో సహాయపడుతుంది.",
+      "fr": "Le tableau de bord Professionnel aide les prestataires vérifiés à suivre leurs missions, voir les détails/lieux, mettre à jour le statut et terminer les tâches pour gagner des points et de la réputation."
+    }
+  },
+  {
+    "topic": "dashboard_citizen",
+    "patterns": [
+      "^what is the citizen dashboard$",
+      "citizen dashboard|home dashboard|user dashboard",
+      "how does the citizen dashboard work|citizen features"
+    ],
+    "answers": {
+      "en": "The Citizen Dashboard is your hub: report local issues, check transport status, vote in polls, see emergency alerts, and track your points, badges and Daily Task progress.",
+      "hi": "सिटिजन डैशबोर्ड आपका केंद्र है: स्थानीय समस्याएँ दर्ज करें, परिवहन स्थिति देखें, पोल में वोट करें, आपातकालीन अलर्ट देखें और अपने अंक, बैज व Daily Task प्रगति ट्रैक करें।",
+      "es": "El Panel Ciudadano es tu centro: reportar incidencias, ver transporte, votar, alertas y tu progreso de puntos, medallas y Tarea Diaria.",
+      "mr": "सिटिझन डॅशबोर्ड तुमचे केंद्र आहे: स्थानिक तक्रारी नोंदवा, परिवहन स्थिती पाहा, मतदान करा, अलर्ट पाहा आणि तुमचे गुण, बॅजेस व Daily Task प्रगती ट्रॅक करा.",
+      "te": "సిటిజన్ డ్యాష్‌బోర్డ్ మీ హబ్: స్థానిక సమస్యలు నివేదించండి, రవాణా స్థితి చూడండి, పోల్స్‌లో ఓటు వేయండి, హెచ్చరికలు చూడండి, మీ పాయింట్లు/బ్యాడ్జ్‌లు/Daily Task పురోగతిని ట్రాక్ చేయండి.",
+      "fr": "Le tableau de bord Citoyen est votre hub : signaler des problèmes, voir le transport, voter, recevoir les alertes et suivre vos points, badges et la progression des Tâches quotidiennes."
+    }
+  },
+  {
+    "topic": "getting_started",
+    "patterns": [
+      "how does this work|how to use|getting started|where to begin|new user",
+      "^how do i report an issue$",
+      "^how do i earn points$"
+    ],
+    "answers": {
+      "en": "Getting started: 1) Create an account (optional for browsing). 2) Report an issue from the Report page—title, description, location, photo. 3) Track transport on the dashboard. 4) Vote in polls and join consultations. 5) Earn points and badges via Daily Task.",
+      "hi": "शुरुआत: 1) खाता बनाएँ (ब्राउज़िंग के लिए वैकल्पिक)। 2) रिपोर्ट पेज से समस्या दर्ज करें—शीर्षक, विवरण, स्थान, फोटो। 3) डैशबोर्ड पर परिवहन देखें। 4) पोल में वोट करें, कंसल्टेशन में शामिल हों। 5) Daily Task से अंक और बैज कमाएँ।",
+      "es": "Primeros pasos: 1) Crea cuenta (opcional para ver). 2) Reporta desde la página Report—título, descripción, ubicación, foto. 3) Consulta transporte. 4) Vota y participa en consultas. 5) Gana puntos y medallas con la Tarea Diaria.",
+      "mr": "सुरुवात: 1) खाते तयार करा (ब्राउझिंगसाठी पर्यायी). 2) रिपोर्ट पेजवरून तक्रार करा—शीर्षक, वर्णन, स्थान, फोटो. 3) डॅशबोर्डवर परिवहन पहा. 4) मतदान करा व कन्सल्टेशनमध्ये सहभागी व्हा. 5) Daily Task द्वारे गुण आणि बॅज मिळवा.",
+      "te": "ప్రారంభం: 1) అకౌంట్ సృష్టించండి (బ్రౌజింగ్‌కి ఐచ్చికం). 2) రిపోర్ట్ పేజీ నుంచి సమస్యను నివేదించండి—శీర్షిక, వివరణ, స్థానం, ఫోటో. 3) డ్యాష్‌బోర్డ్‌లో రవాణా చూడండి. 4) పోల్స్/కన్సల్టేషన్లలో పాల్గొనండి. 5) డైలీ టాస్క్‌తో పాయింట్లు, బ్యాడ్జ్‌లు సంపాదించండి.",
+      "fr": "Pour commencer : 1) Créez un compte (facultatif pour parcourir). 2) Signalez un problème — titre, description, localisation, photo. 3) Consultez le transport. 4) Votez et participez aux consultations. 5) Gagnez des points et des badges avec la Tâche quotidienne."
+    }
+  }
+]

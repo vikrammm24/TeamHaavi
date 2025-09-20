@@ -29,11 +29,14 @@ declare global {
   }
 }
 
-export function useVoiceSOS(keyword = 'help me') {
+export function useVoiceSOS(keyword: string | string[] = 'help me') {
   const [listening, setListening] = useState(false);
   const [supported, setSupported] = useState(false);
   const recogRef = useRef<SpeechRecognition | null>(null);
-  const key = useMemo(() => keyword.toLowerCase(), [keyword]);
+  const keys = useMemo(() => {
+    if (Array.isArray(keyword)) return keyword.map(k => String(k).toLowerCase()).filter(Boolean);
+    return [String(keyword).toLowerCase()];
+  }, [keyword]);
 
   useEffect(() => {
     const SR: SpeechRecognitionCtor | undefined =
@@ -48,7 +51,7 @@ export function useVoiceSOS(keyword = 'help me') {
       for (let i = event.resultIndex; i < event.results.length; i++) {
         const res: { [key: number]: { transcript?: string } } = event.results[i] as unknown as { [key: number]: { transcript?: string } };
         const transcript = String(res?.[0]?.transcript || '').toLowerCase();
-        if (transcript.includes(key)) {
+        if (keys.some(k => k && transcript.includes(k))) {
           const rk = (rec as unknown as { onkeyword?: () => void }).onkeyword;
           if (typeof rk === 'function') rk();
         }
@@ -63,7 +66,7 @@ export function useVoiceSOS(keyword = 'help me') {
     recogRef.current = rec;
     return () => { try { rec.abort(); } catch { /* ignore */ } recogRef.current = null; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key]);
+  }, [keys]);
 
   const start = useCallback((onKeyword: () => void) => {
     const rec = recogRef.current;

@@ -1,4 +1,5 @@
 import { defineConfig } from 'vite';
+import path from 'node:path';
 import react from '@vitejs/plugin-react';
 
 // https://vitejs.dev/config/
@@ -7,7 +8,14 @@ export default defineConfig({
   base: './',
   plugins: [react()],
   optimizeDeps: {
-    exclude: ['lucide-react'],
+    exclude: ['lucide-react']
+  },
+  resolve: {
+    alias: {
+      // Use light shims for web build so native packages aren't required
+      '@capacitor/core': path.resolve(__dirname, 'src/shims/capacitor-core.ts'),
+      '@capacitor/geolocation': path.resolve(__dirname, 'src/shims/capacitor-geolocation.ts'),
+    },
   },
   server: {
     host: true, // listen on all addresses, enables LAN access

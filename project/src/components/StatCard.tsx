@@ -8,17 +8,11 @@ interface StatCardProps {
   change: string;
   trend: 'up' | 'down' | 'neutral';
   icon: React.ReactNode;
-  color: 'blue' | 'green' | 'yellow' | 'purple' | 'red';
+  onClick?: () => void;
+  className?: string;
 }
 
-const StatCard: React.FC<StatCardProps> = ({ title, value, change, trend, icon, color }) => {
-  const colorClasses = {
-    blue: 'from-blue-500 to-blue-600',
-    green: 'from-green-500 to-green-600',
-    yellow: 'from-yellow-500 to-yellow-600',
-    purple: 'from-purple-500 to-purple-600',
-    red: 'from-red-500 to-red-600',
-  };
+const StatCard: React.FC<StatCardProps> = ({ title, value, change, trend, icon, onClick, className }) => {
 
   const getTrendIcon = () => {
     switch (trend) {
@@ -42,13 +36,26 @@ const StatCard: React.FC<StatCardProps> = ({ title, value, change, trend, icon, 
     }
   };
 
+  const handleKey = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (!onClick) return;
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      onClick();
+    }
+  };
+
   return (
     <motion.div
       whileHover={{ y: -4, scale: 1.02 }}
-      className="bg-white rounded-xl shadow-lg p-6 border border-gray-100 hover:shadow-xl transition-all duration-300"
+      className={`bg-white rounded-xl shadow-lg p-6 border border-gray-100 hover:shadow-xl transition-all duration-300 ${onClick ? 'cursor-pointer' : ''} ${className || ''}`}
+      onClick={onClick}
+      role={onClick ? 'button' : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      onKeyDown={handleKey}
+      aria-label={onClick ? `${title}: ${value}` : undefined}
     >
       <div className="flex items-center justify-between mb-4">
-        <div className={`p-3 rounded-lg bg-gradient-to-r ${colorClasses[color]} text-white`}>
+        <div className={`p-3 rounded-lg text-white`} style={{ background: 'linear-gradient(135deg, var(--bg3), var(--bg1))' }}>
           {icon}
         </div>
         <div className="flex items-center space-x-1">

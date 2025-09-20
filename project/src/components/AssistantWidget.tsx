@@ -13,7 +13,8 @@ const LANG_OPTIONS = [
   { value: 'hi', label: 'हिन्दी' },
   { value: 'es', label: 'Español' },
   { value: 'mr', label: 'मराठी' },
-  { value: 'te', label: 'తెలుగు' }
+  { value: 'te', label: 'తెలుగు' },
+  { value: 'fr', label: 'Français' }
 ];
 
 type AssistantLang = 'en' | 'hi' | 'es' | 'mr' | 'te' | 'fr';
@@ -21,8 +22,16 @@ type AssistantLang = 'en' | 'hi' | 'es' | 'mr' | 'te' | 'fr';
 const AssistantWidget: React.FC = () => {
   const { locale } = useContext(LocaleContext) || { locale: 'en' };
   const [open, setOpen] = useState(false);
+  const initialGreetings: Record<AssistantLang, string> = {
+    en: 'Hello! I can help you report issues, check transport updates, or vote in polls. How can I assist you today?',
+    hi: 'नमस्ते! मैं आपकी मदद कर सकता हूँ: समस्या दर्ज करना, परिवहन अपडेट देखना, या पोल में वोट करना। आज मैं आपकी कैसे मदद कर सकता हूँ?',
+    es: '¡Hola! Puedo ayudarte a reportar incidencias, ver transporte o votar en encuestas. ¿Cómo te puedo ayudar hoy?',
+    mr: 'नमस्कार! मी तक्रारी नोंदवणे, परिवहन अपडेट्स पाहणे किंवा मतदान यामध्ये मदत करू शकतो. आज मी कशी मदत करू?',
+    te: 'హలో! సమస్యలు నివేదించడం, రవాణా అప్‌డేట్లు చూడడం, పోల్స్‌లో ఓటు వేయడంలో నేను సహాయం చేయగలను. ఈరోజు ఎలా సహాయం చేయగలను?',
+    fr: 'Bonjour ! Je peux vous aider à signaler des problèmes, consulter les transports ou voter aux sondages. Comment puis-je vous aider ?'
+  };
   const [messages, setMessages] = useState<ChatMessage[]>([
-    { role: 'assistant', text: 'Hello! I can help you report issues, check transport updates, or vote in polls. How can I assist you today?' }
+    { role: 'assistant', text: initialGreetings[(locale as AssistantLang) || 'en'] }
   ]);
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
@@ -65,11 +74,11 @@ const AssistantWidget: React.FC = () => {
   };
 
   return (
-    <div className="fixed bottom-4 right-4 z-50">
+  <div>
       {!open && (
         <button
           onClick={() => setOpen(true)}
-          className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-green-500 text-white px-4 py-3 rounded-full shadow-lg hover:shadow-xl transition-all"
+          className="flex items-center gap-2 brand-icon text-white px-4 py-3 rounded-full shadow-lg hover:shadow-xl transition-all"
         >
           <MessageCircle className="w-5 h-5" />
           <span className="hidden sm:block">Ask Assistant</span>
@@ -78,7 +87,7 @@ const AssistantWidget: React.FC = () => {
 
       {open && (
         <div className="w-[92vw] sm:w-96 bg-white rounded-xl shadow-2xl border flex flex-col overflow-hidden">
-          <div className="flex items-center justify-between px-4 py-3 border-b bg-gradient-to-r from-blue-600 to-green-500 text-white">
+          <div className="flex items-center justify-between px-4 py-3 border-b brand-icon text-white">
             <div className="flex items-center gap-2">
               <MessageCircle className="w-5 h-5" />
               <div className="font-semibold">CityConnect Assistant</div>
@@ -105,7 +114,7 @@ const AssistantWidget: React.FC = () => {
 
           <div ref={listRef} className="flex-1 overflow-auto p-3 space-y-2 bg-gray-50">
             {messages.map((m, idx) => (
-              <div key={idx} className={`max-w-[85%] rounded-lg px-3 py-2 text-sm shadow ${m.role === 'user' ? 'ml-auto bg-blue-600 text-white' : 'mr-auto bg-white text-gray-800'}`}>
+              <div key={idx} className={`max-w-[85%] rounded-lg px-3 py-2 text-sm shadow ${m.role === 'user' ? 'ml-auto text-white' : 'mr-auto bg-white text-gray-800'}`} style={m.role === 'user' ? { background: 'var(--bg3)' } : undefined}>
                 {m.text}
               </div>
             ))}
@@ -124,7 +133,8 @@ const AssistantWidget: React.FC = () => {
             <button
               onClick={sendMessage}
               disabled={sending}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg disabled:opacity-50"
+              className="text-white px-3 py-2 rounded-lg disabled:opacity-50"
+              style={{ background: 'linear-gradient(135deg, var(--bg3), var(--bg1))' }}
             >
               <Send className="w-4 h-4" />
             </button>

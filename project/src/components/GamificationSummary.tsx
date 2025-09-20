@@ -6,7 +6,7 @@ const GamificationSummary: React.FC = () => {
   const recent = history.slice(0, 5);
   return (
     <div className="bg-white rounded-xl shadow p-5">
-      <h3 className="text-lg font-semibold mb-3">Gamification</h3>
+  <h3 className="text-lg font-semibold mb-3">Daily Task</h3>
       <div className="flex items-center gap-6 flex-wrap">
         <div>
           <div className="text-2xl font-bold">{points}</div>

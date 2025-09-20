@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { MapPin, Camera, Send, ArrowLeft } from 'lucide-react';
 import { useNotifications } from '../contexts/NotificationContext';
 import axios from 'axios';
 import { MapWithRealtimeLocation, useLocation } from '../components/RealtimeLocation';
 import api from '../api/config';
-import { addLocalIssue, SECUNDERABAD } from '../api/dataSources';
+import { addLocalIssue, haversineKm } from '../api/dataSources';
 import { rtdb, auth } from '../components/firebase/firebase';
 import { uploadIssueImage } from '../components/firebase/storage';
 import { useGamification } from '../contexts/gamification/useGamification';
@@ -14,6 +14,41 @@ import ProfessionalSuggestions from '../components/ProfessionalSuggestions';
 import { pushGlobalNotification } from '../components/firebase/notifications';
 
 const ReportIssue: React.FC = () => {
+  // Voice recognition state
+  const [listening, setListening] = useState(false);
+  const [voiceSupported, setVoiceSupported] = useState(false);
+  const recognitionRef = useRef<any>(null);
+
+  useEffect(() => {
+    // Check browser support
+    setVoiceSupported('webkitSpeechRecognition' in window || 'SpeechRecognition' in window);
+  }, []);
+
+  const startVoiceRecognition = () => {
+    if (!voiceSupported) return;
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) return;
+    const recognition = new SpeechRecognition();
+    recognition.lang = 'en-IN';
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+    recognition.onresult = (event: any) => {
+      const transcript = event.results[0][0].transcript;
+      setFormData(prev => ({ ...prev, description: prev.description ? prev.description + ' ' + transcript : transcript }));
+    };
+    recognition.onend = () => setListening(false);
+    recognition.onerror = () => setListening(false);
+    recognitionRef.current = recognition;
+    recognition.start();
+    setListening(true);
+  };
+
+  const stopVoiceRecognition = () => {
+    if (recognitionRef.current) {
+      recognitionRef.current.stop();
+      setListening(false);
+    }
+  };
   const navigate = useNavigate();
   const { awardEvent } = useGamification();
   const { addNotification } = useNotifications();
@@ -32,6 +67,7 @@ const ReportIssue: React.FC = () => {
   interface AISuggestion { category: string; confidence: number; reason?: string }
   const [suggestions, setSuggestions] = useState<AISuggestion[]>([]);
   const [isSuggesting, setIsSuggesting] = useState(false);
+  const [geoSource, setGeoSource] = useState<'gps' | 'manual' | 'unknown'>('unknown');
 
   const reverseGeocode = async (lat: number, lng: number): Promise<string> => {
     try {
@@ -50,6 +86,7 @@ const ReportIssue: React.FC = () => {
         ...prev,
         location: `${coords.lat.toFixed(6)}, ${coords.lng.toFixed(6)}`
       }));
+      setGeoSource('gps');
     }
   }, [coords, formData.location]);
 
@@ -151,6 +188,23 @@ const ReportIssue: React.FC = () => {
     setIsSubmitting(true);
 
     try {
+      const parts0 = (formData.location || '').split(',');
+      if (parts0.length !== 2 || !isFinite(parseFloat(parts0[0])) || !isFinite(parseFloat(parts0[1]))) {
+        addNotification({ type: 'error', title: 'Location Required', message: 'Please set a location using GPS or the map before submitting.' });
+        setIsSubmitting(false);
+        return;
+      }
+      const repLat = parseFloat(parts0[0]);
+      const repLng = parseFloat(parts0[1]);
+      const userLat = coords?.lat ?? null;
+      const userLng = coords?.lng ?? null;
+      const distanceKm = (userLat != null && userLng != null) ? haversineKm({ lat: repLat, lng: repLng }, { lat: userLat, lng: userLng }) : null;
+      const distanceMeters = distanceKm != null ? Math.round(distanceKm * 1000) : null;
+      const inferredSource: 'gps' | 'manual' | 'unknown' = geoSource !== 'unknown'
+        ? geoSource
+        : (formData.address?.includes('Auto-detected') ? 'gps' : formData.address?.includes('Selected on map') ? 'manual' : 'unknown');
+      const geoVerified = inferredSource === 'gps' && typeof coords?.accuracy === 'number' && coords.accuracy <= 100 && (distanceMeters == null || distanceMeters <= 50);
+
       // Try remote first
       let issue;
       try {
@@ -159,13 +213,7 @@ const ReportIssue: React.FC = () => {
       } catch {
         // Fallback: save locally so it appears in dashboards immediately
         const id = 'local-' + Math.random().toString(36).slice(2);
-        let lat = SECUNDERABAD.lat, lng = SECUNDERABAD.lng;
-        const parts = (formData.location || '').split(',');
-        if (parts.length === 2) {
-          const tlat = parseFloat(parts[0]);
-          const tlng = parseFloat(parts[1]);
-          if (isFinite(tlat) && isFinite(tlng)) { lat = tlat; lng = tlng; }
-        }
+        const lat = repLat, lng = repLng;
         issue = {
           id,
           title: formData.title,
@@ -183,22 +231,56 @@ const ReportIssue: React.FC = () => {
       try {
         const user = auth.currentUser;
         if (user) {
-          await dbSet(dbRef(rtdb, `reports/${user.uid}/${issue.id}`), {
+          const now = Date.now();
+          const payload = {
             title: issue.title,
             description: issue.description || formData.description,
             priority: issue.priority || formData.priority,
             status: issue.status || 'pending',
             location: issue.location || formData.address || 'Secunderabad',
-            lat: issue.lat ?? (coords?.lat ?? null),
-            lng: issue.lng ?? (coords?.lng ?? null),
+            lat: issue.lat ?? repLat,
+            lng: issue.lng ?? repLng,
+            geo: {
+              source: inferredSource,
+              accuracy: typeof coords?.accuracy === 'number' ? Math.round(coords.accuracy) : null,
+              userLat,
+              userLng,
+              distanceMeters,
+              verified: geoVerified,
+            },
             photos: Array.isArray(photos) ? photos : [],
-            timestamp: Date.now(),
+            timestamp: now,
+          };
+          // Write under the user's node
+          await dbSet(dbRef(rtdb, `reports/${user.uid}/${issue.id}`), payload);
+          // Also write to a global index so everyone can see
+          await dbSet(dbRef(rtdb, `publicReports/${issue.id}`), {
+            ...payload,
+            uid: user.uid,
+            authorName: user.displayName || user.email || 'Anonymous',
           });
         }
       } catch (e) {
         console.warn('RTDB write failed', e);
       }
       const award = awardEvent('ISSUE_REPORTED', { issueId: issue.id, category: formData.category });
+      if (award?.newBadge) {
+        addNotification({ type: 'success', title: `New Badge: ${award.newBadge}`, message: `Congrats! You earned the ${award.newBadge} badge.` });
+      }
+      if (award && award.newLevel > 1 && award.newLevel !== 1 && award.pointsAwarded > 0 && award.newTotal % 100 === 0) {
+        addNotification({ type: 'success', title: `Level Up!`, message: `You're now level ${award.newLevel}.` });
+      }
+      // Extra awards for geotagging authenticity
+      const tagAward = awardEvent('GEO_TAGGED_REPORT' as any, { issueId: issue.id });
+      if (tagAward) {
+        addNotification({ type: 'info', title: 'Geotag Bonus', message: `Thanks for geotagging! +${tagAward.pointsAwarded} pts.` });
+      }
+      if (geoVerified) {
+        const verAward = awardEvent('GEO_VERIFIED_REPORT' as any, { issueId: issue.id, distanceMeters });
+        if (verAward) {
+          addNotification({ type: 'info', title: 'GPS Verified', message: `Location verified (+${verAward.pointsAwarded} pts).` });
+        }
+      }
       addNotification({
         type: 'success',
         title: 'Issue Reported Successfully',
@@ -237,6 +319,7 @@ const ReportIssue: React.FC = () => {
         location: `${coords.lat.toFixed(6)}, ${coords.lng.toFixed(6)}`,
         address: 'Current Location (Auto-detected)'
       }));
+      setGeoSource('gps');
     } else {
       addNotification({
         type: 'error',
@@ -248,6 +331,14 @@ const ReportIssue: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      <div className="container mx-auto px-4 py-4">
+        <button
+          onClick={() => navigate('/citizen-dashboard')}
+          className="mb-4 px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded text-gray-700 font-semibold"
+        >
+          ← Back to Dashboard
+        </button>
+      </div>
       {/* Header */}
       <div className="bg-white shadow-sm border-b">
         <div className="container mx-auto px-4 py-4">
@@ -355,8 +446,18 @@ const ReportIssue: React.FC = () => {
 
               {/* Description */}
               <div>
-                <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-2">
+                <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
                   Detailed Description *
+                  {voiceSupported && (
+                    <button
+                      type="button"
+                      aria-label={listening ? 'Stop voice input' : 'Start voice input'}
+                      onClick={listening ? stopVoiceRecognition : startVoiceRecognition}
+                      className={`ml-2 px-2 py-1 rounded-full border ${listening ? 'bg-red-100 border-red-400 text-red-600' : 'bg-blue-100 border-blue-400 text-blue-600'} transition`}
+                    >
+                      {listening ? 'Stop 🎤' : 'Speak 🎤'}
+                    </button>
+                  )}
                 </label>
                 <textarea
                   id="description"
@@ -367,6 +468,7 @@ const ReportIssue: React.FC = () => {
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300"
                   placeholder="Provide a detailed description of the issue, including when you noticed it and any relevant context"
                   required
+                  aria-label="Issue description"
                 />
 
                 {/* Professional Suggestions (AI match-making) */}
@@ -405,6 +507,26 @@ const ReportIssue: React.FC = () => {
                   {formData.location && (
                     <div className="text-sm text-gray-500">
                       Coordinates: {formData.location}
+                      {(() => {
+                        const p = (formData.location || '').split(',');
+                        const ok = p.length === 2 && isFinite(parseFloat(p[0])) && isFinite(parseFloat(p[1]));
+                        const userLat = coords?.lat;
+                        const userLng = coords?.lng;
+                        const distKm = ok && userLat != null && userLng != null ? haversineKm({ lat: parseFloat(p[0]), lng: parseFloat(p[1]) }, { lat: userLat, lng: userLng }) : null;
+                        const distM = distKm != null ? Math.round(distKm * 1000) : null;
+                        const acc = typeof coords?.accuracy === 'number' ? Math.round(coords.accuracy) : null;
+                        const verified = (geoSource === 'gps') && acc != null && acc <= 100 && (distM == null || distM <= 50);
+                        return (
+                          <div className="mt-1 text-xs text-gray-500">
+                            <span className="mr-3">Source: {geoSource}</span>
+                            {acc != null && <span className="mr-3">Accuracy: ±{acc}m</span>}
+                            {distM != null && <span className="mr-3">GPS distance: {distM}m</span>}
+                            <span className={verified ? 'text-green-600' : 'text-gray-500'}>
+                              {verified ? 'GPS verified' : 'Not verified'}
+                            </span>
+                          </div>
+                        );
+                      })()}
                     </div>
                   )}
                   <div className="mt-3">
@@ -421,6 +543,7 @@ const ReportIssue: React.FC = () => {
                           location: `${ll[0].toFixed(6)}, ${ll[1].toFixed(6)}`,
                           address: prev.address || 'Selected on map'
                         }));
+                        setGeoSource('manual');
                       }}
                     />
                   </div>

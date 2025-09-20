@@ -10,6 +10,10 @@ interface User {
 
 interface Preferences {
   useNearbyContent: boolean;
+  sosContacts?: { father?: string; mother?: string };
+  sosIncludeLiveLink?: boolean;
+  sosLinkType?: 'app';
+  sosSmsFallback?: boolean;
 }
 
 interface UserContextType {
@@ -19,8 +23,8 @@ interface UserContextType {
   isAuthenticated: boolean;
   preferences: Preferences;
   setPreferences: (update: Partial<Preferences>) => void;
-  aiMatchingResults?: any;
-  aiAnalyticsData?: any;
+  aiMatchingResults?: unknown;
+  aiAnalyticsData?: unknown;
 }
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
@@ -40,9 +44,10 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [preferences, setPreferencesState] = useState<Preferences>(() => {
     try {
       const raw = localStorage.getItem(PREFERENCES_KEY);
-      return raw ? JSON.parse(raw) : { useNearbyContent: true } as Preferences;
+      const parsed = raw ? JSON.parse(raw) as Preferences : undefined;
+      return parsed ?? { useNearbyContent: true, sosIncludeLiveLink: true, sosLinkType: 'app', sosSmsFallback: true } as Preferences;
     } catch {
-      return { useNearbyContent: true };
+      return { useNearbyContent: true, sosIncludeLiveLink: true, sosLinkType: 'app', sosSmsFallback: true } as Preferences;
     }
   });
 
@@ -54,7 +59,7 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const setPreferences = (update: Partial<Preferences>) => {
     setPreferencesState(prev => {
       const next = { ...prev, ...update };
-      try { localStorage.setItem(PREFERENCES_KEY, JSON.stringify(next)); } catch {}
+  try { localStorage.setItem(PREFERENCES_KEY, JSON.stringify(next)); } catch { /* ignore */ }
       return next;
     });
   };
@@ -76,6 +81,8 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   );
 };
 
+// Note: This hook returns context values. Keep component exports separate for Fast Refresh compatibility.
+// eslint-disable-next-line react-refresh/only-export-components
 export const useUser = () => {
   const context = useContext(UserContext);
   if (context === undefined) {

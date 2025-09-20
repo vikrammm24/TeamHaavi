@@ -2,10 +2,10 @@ import React from 'react';
 import { useToast } from './ui/ToastProvider';
 
 const THEMES = [
-  { id: 'ocean', label: 'Ocean' },
-  { id: 'sunset', label: 'Sunset' },
-  { id: 'forest', label: 'Forest' },
-  { id: 'royal', label: 'Royal' },
+  { id: 'ocean', label: 'Ocean', swatch: ['#0ea5e9','#22c55e','#3b82f6','#14b8a6'] },
+  { id: 'sunset', label: 'Sunset', swatch: ['#f59e0b','#ef4444','#f97316','#ec4899'] },
+  { id: 'forest', label: 'Forest', swatch: ['#22c55e','#16a34a','#059669','#65a30d'] },
+  { id: 'royal', label: 'Royal', swatch: ['#8b5cf6','#6366f1','#0ea5e9','#f59e0b'] },
 ] as const;
 
 const ThemeSelector: React.FC = () => {
@@ -32,10 +32,9 @@ const ThemeSelector: React.FC = () => {
           >
             <div className="flex items-center gap-2">
               <span className="inline-flex -space-x-1.5">
-                <i className="w-4 h-4 rounded-full" style={{ background: 'var(--bg1)' }} />
-                <i className="w-4 h-4 rounded-full" style={{ background: 'var(--bg2)' }} />
-                <i className="w-4 h-4 rounded-full" style={{ background: 'var(--bg3)' }} />
-                <i className="w-4 h-4 rounded-full" style={{ background: 'var(--bg4)' }} />
+                {t.swatch.map((c, i) => (
+                  <i key={i} className="w-4 h-4 rounded-full" style={{ background: c }} />
+                ))}
               </span>
               <span className="text-sm font-medium">{t.label}</span>
             </div>

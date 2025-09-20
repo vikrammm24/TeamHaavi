@@ -1,5 +1,5 @@
 import { auth, db } from "./firebase";
-import { Capacitor } from '@capacitor/core';
+import { Capacitor } from '../../shims/capacitor-core';
 import { nativeGoogleSignIn, nativeGoogleSignOut, isNativeGoogleAvailable } from './googleNative';
 import {
   createUserWithEmailAndPassword,

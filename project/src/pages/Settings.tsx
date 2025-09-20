@@ -1,11 +1,16 @@
-import React from 'react';
+import React, { useState } from 'react';
 import DashboardLayout from '../components/DashboardLayout';
 import { useUser } from '../contexts/UserContext';
-import { motion } from 'framer-motion';
-import { User, Mail, MapPin, Shield, ToggleRight } from 'lucide-react';
+import { User, Mail, Shield, Phone, Link, MessageSquare } from 'lucide-react';
+import ThemeSelector from '../components/ThemeSelector';
+import { openWhatsAppNow } from '../utils/sosMessaging';
 
 const Settings: React.FC = () => {
   const { user, preferences, setPreferences } = useUser();
+  const [father, setFather] = useState(preferences?.sosContacts?.father || '+918247024233');
+  const [mother, setMother] = useState(preferences?.sosContacts?.mother || '');
+  const [includeLive, setIncludeLive] = useState(preferences?.sosIncludeLiveLink ?? true);
+  const [smsFallback, setSmsFallback] = useState(preferences?.sosSmsFallback ?? true);
 
   return (
     <DashboardLayout title="Settings">
@@ -24,6 +29,12 @@ const Settings: React.FC = () => {
           )}
         </div>
 
+        {/* Theme */}
+        <div className="bg-white rounded-xl shadow p-6">
+          <h3 className="text-lg font-semibold mb-4">Theme</h3>
+          <ThemeSelector />
+        </div>
+
         {/* Preferences */}
         <div className="bg-white rounded-xl shadow p-6">
           <h3 className="text-lg font-semibold mb-4">Preferences</h3>
@@ -38,6 +49,45 @@ const Settings: React.FC = () => {
             >
               {preferences.useNearbyContent ? 'On' : 'Off'}
             </button>
+          </div>
+        </div>
+
+        {/* SOS Settings */}
+        <div className="bg-white rounded-xl shadow p-6">
+          <h3 className="text-lg font-semibold mb-4">Emergency SOS</h3>
+          <div className="grid gap-4">
+            <div className="grid sm:grid-cols-2 gap-4">
+              <label className="grid gap-1 text-sm">
+                <span className="font-medium flex items-center gap-2"><Phone className="w-4 h-4"/>Father (WhatsApp)</span>
+                <input value={father} onChange={(e)=>setFather(e.target.value)} placeholder="e.g. +918247024233" className="border rounded-lg px-3 py-2"/>
+              </label>
+              <label className="grid gap-1 text-sm">
+                <span className="font-medium flex items-center gap-2"><Phone className="w-4 h-4"/>Mother (WhatsApp)</span>
+                <input value={mother} onChange={(e)=>setMother(e.target.value)} placeholder="e.g. +9198xxxxxxxx" className="border rounded-lg px-3 py-2"/>
+              </label>
+            </div>
+
+            <label className="flex items-center gap-3">
+              <input type="checkbox" checked={includeLive} onChange={(e)=>setIncludeLive(e.target.checked)} />
+              <span className="text-sm flex items-center gap-2"><Link className="w-4 h-4"/>Include Live SOS link</span>
+            </label>
+            <label className="flex items-center gap-3">
+              <input type="checkbox" checked={smsFallback} onChange={(e)=>setSmsFallback(e.target.checked)} />
+              <span className="text-sm flex items-center gap-2"><MessageSquare className="w-4 h-4"/>SMS fallback if WhatsApp blocked</span>
+            </label>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setPreferences({ sosContacts: { father, mother }, sosIncludeLiveLink: includeLive, sosSmsFallback: smsFallback, sosLinkType: 'app' })}
+                className="px-4 py-2 rounded-lg bg-blue-600 text-white"
+              >Save SOS Settings</button>
+              <button
+                onClick={() => openWhatsAppNow(father || mother, 'Test: SOS quick share from CityConnect')}
+                className="px-4 py-2 rounded-lg bg-green-600 text-white"
+              >Send Test</button>
+            </div>
+
+            <p className="text-xs text-gray-500">Tip: You can trigger SOS by tapping the red button, saying "help me", or shaking your phone.</p>
           </div>
         </div>
       </div>

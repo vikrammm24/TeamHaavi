@@ -1,29 +1,46 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Link, useLocation } from 'react-router-dom';
+import { listenGlobalNotifications } from '../components/firebase/notifications';
+import { useNotifications } from '../contexts/NotificationContext';
 import { BarChart, Users, Clock, CheckCircle, AlertTriangle, MapPin } from 'lucide-react';
+import ResourceOptimizerEquityIndex from '../components/ResourceOptimizerEquityIndex';
+import DisasterReliefNGOIntegration from '../components/DisasterReliefNGOIntegration';
+import GenderSafetyDashboard from '../components/GenderSafetyDashboard';
 import DashboardLayout from '../components/DashboardLayout';
-import StatCard from '../components/StatCard';
 import Chart from '../components/Chart';
+import StatCard from '../components/StatCard';
 import { MapWithRealtimeLocation } from '../components/RealtimeLocation';
+import { useRealtimeReportPins, useRealtimeSOSPins } from '../hooks/useRealtimePins';
 import { motion } from 'framer-motion';
 import api from '../api/config';
-import { fetchMatches, fetchAnalytics, fetchPayments, fetchSensors, fetchBroadcast, fetchPolls, fetchTransport, fetchLeaderboard, fetchVerifications, fetchIssues, normalizeIssue, SECUNDERABAD, haversineKm } from '../api/dataSources';
+import { fetchMatches, fetchAnalytics, fetchPayments, fetchSensors, fetchBroadcast, fetchPolls, fetchTransport, fetchLeaderboard, fetchIssues, normalizeIssue, SECUNDERABAD, haversineKm } from '../api/dataSources';
+import EngagementFeatures from '../components/EngagementFeatures';
 
 const AuthorityDashboard: React.FC = () => {
+  const { addNotification } = useNotifications();
   const [animateCards, setAnimateCards] = useState(false);
   const [aiMatches, setAiMatches] = useState<any[]>([]);
   const [aiAnalytics, setAiAnalytics] = useState<any>(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
-  const [payments, setPayments] = useState([]);
-  const [sensors, setSensors] = useState([]);
-  const [verifications, setVerifications] = useState([]);
+  const [payments, setPayments] = useState<any[]>([]);
+  const [sensors, setSensors] = useState<any[]>([]);
   const [broadcast, setBroadcast] = useState<any | null>(null);
   const [polls, setPolls] = useState<any[]>([]);
   const [transport, setTransport] = useState<any>(null);
   const [leaderboard, setLeaderboard] = useState<any[]>([]);
+  const [allIssues, setAllIssues] = useState<any[]>([]);
 
   useEffect(() => {
     setAnimateCards(true);
+    const unsub = listenGlobalNotifications((notification) => {
+      addNotification({
+        type: notification.type,
+        title: notification.title,
+        message: notification.message,
+      });
+    });
+    return () => unsub();
   }, []);
 
   useEffect(() => {
@@ -74,22 +91,16 @@ const AuthorityDashboard: React.FC = () => {
   useEffect(() => {
     fetchLeaderboard().then(setLeaderboard);
   }, []);
-  // Fetch verifications
-  useEffect(() => {
-    fetchVerifications().then(setVerifications);
-  }, []);
-  const handleApprove = async (id) => {
-    await api.patch(`/verifications/${id}`, { status: 'approved' });
-    setVerifications(vs => vs.map(v => v.id === id ? { ...v, status: 'approved' } : v));
-  };
+  
 
-  // Load issues near Secunderabad for table and map
+  // Load issues (store all + derive recent near Secunderabad for table/map)
   useEffect(() => {
     let mounted = true;
     const pull = async () => {
       try {
         const arr = await fetchIssues();
         const norm = (Array.isArray(arr) ? arr : []).map(normalizeIssue);
+        if (mounted) setAllIssues(norm);
         const withDist = norm.map((i: any) => ({ ...i, _dist: (i.lat && i.lng) ? haversineKm({ lat: i.lat, lng: i.lng }, SECUNDERABAD) : Infinity }));
         const chosen = withDist
           .filter(i => isFinite(i._dist) && i._dist <= 50)
@@ -105,7 +116,7 @@ const AuthorityDashboard: React.FC = () => {
     return () => { mounted = false; clearInterval(t); };
   }, []);
 
-  const stats = [
+  const stats: Array<{ title: string; value: string; change: string; trend: 'up' | 'down' | 'neutral'; icon: React.ReactNode; color: string }> = [
     {
       title: 'Total Issues',
       value: '247',
@@ -141,22 +152,157 @@ const AuthorityDashboard: React.FC = () => {
   ];
 
   const [recentIssues, setRecentIssues] = useState<any[]>([]);
+  const reportPins = useRealtimeReportPins();
+  const sosPins = useRealtimeSOSPins();
+
+  // Derived data for Progress section
+  const resolvedThisMonth = useMemo(() => {
+    const now = Date.now();
+    const startOfWindow = now - 30 * 24 * 3600 * 1000;
+    return (allIssues || []).filter(i => i.status === 'resolved' && i.resolvedAt && new Date(i.resolvedAt).getTime() >= startOfWindow);
+  }, [allIssues]);
+
+  const resolvedAll = useMemo(() => (allIssues || []).filter(i => i.status === 'resolved' && i.resolvedAt && i.createdAt), [allIssues]);
+
+  const avgResolutionMs = useMemo(() => {
+    const durations = resolvedAll
+      .map(i => new Date(i.resolvedAt).getTime() - new Date(i.createdAt).getTime())
+      .filter((d: any) => typeof d === 'number' && isFinite(d) && d > 0);
+    if (!durations.length) return null as number | null;
+    return Math.round(durations.reduce((a: number, b: number) => a + b, 0) / durations.length);
+  }, [resolvedAll]);
+
+  const formatDuration = (ms?: number | null) => {
+    if (!ms || ms <= 0) return 'N/A';
+    const minutes = Math.floor(ms / 60000);
+    if (minutes < 60) return `${minutes}m`;
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    if (hours < 48) return `${hours}h ${mins}m`;
+    const days = Math.floor(hours / 24);
+    const remH = hours % 24;
+    return `${days}d ${remH}h`;
+  };
+
+  const loc = useLocation();
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(loc.search);
+      const section = params.get('section');
+      if (section) {
+        const el = document.getElementById(section);
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }
+    } catch {}
+  }, [loc.search]);
 
   return (
-    <DashboardLayout title="Authority Dashboard">
+    <DashboardLayout title="Authority Dashboard" sidebarType="authority">
       <div className="space-y-6">
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {stats.map((stat, index) => (
-            <motion.div
-              key={stat.title}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: animateCards ? 1 : 0, y: animateCards ? 0 : 20 }}
-              transition={{ delay: index * 0.1 }}
-            >
-              <StatCard {...stat} />
-            </motion.div>
-          ))}
+  {/* Resource Optimizer & Equity Index */}
+  <ResourceOptimizerEquityIndex />
+  {/* Disaster Relief & NGO Integration */}
+  <DisasterReliefNGOIntegration />
+  {/* Gender-Safety Dashboard */}
+  <GenderSafetyDashboard />
+        {/* Progress: single boxed container with four inline KPI cards */}
+        <div id="progress" className={`bg-white rounded-xl shadow-lg p-6 transform transition-all duration-500 ${
+            animateCards ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
+          }`} style={{ transitionDelay: '0.3s' }}>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">Progress</h2>
+          </div>
+          <div className="flex flex-nowrap gap-6 overflow-x-auto pb-1 -mx-1 px-1">
+            {(Array.isArray(stats) ? stats : []).map((stat, index) => (
+              <motion.div
+                key={stat.title}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: animateCards ? 1 : 0, y: animateCards ? 0 : 20 }}
+                transition={{ delay: index * 0.1 }}
+                className="min-w-[260px]"
+              >
+                {stat.title === 'Total Issues' ? (
+                  <Link to="/all-issues" className="block focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-xl" aria-label="View all issues">
+                    <StatCard {...stat} />
+                  </Link>
+                ) : (
+                  <StatCard {...stat} />
+                )}
+                {/* Details under each KPI */}
+                {stat.title === 'Total Issues' && (
+                  <div className="mt-2 bg-white/70 border border-gray-200 rounded-lg p-3 shadow-sm max-h-40 overflow-auto text-sm">
+                    <div className="font-medium text-gray-700 mb-1">Latest Issues</div>
+                    <ul className="space-y-1">
+                      {((allIssues && allIssues.length ? allIssues : recentIssues).slice(0, 5)).map((i:any) => (
+                        <li key={i.id} className="flex items-start justify-between gap-2">
+                          <span className="text-gray-800 line-clamp-1">{i.title}</span>
+                          <span className={`text-xs px-2 py-0.5 rounded-full whitespace-nowrap ${
+                            i.status === 'resolved' ? 'bg-green-100 text-green-700' : i.status === 'in-progress' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-700'
+                          }`}>{i.status}</span>
+                        </li>
+                      ))}
+                      {((allIssues && allIssues.length ? allIssues : recentIssues).length === 0) && (
+                        <li className="text-gray-500">No issues found.</li>
+                      )}
+                    </ul>
+                  </div>
+                )}
+                {stat.title === 'Resolved This Month' && (
+                  <div className="mt-2 bg-white/70 border border-gray-200 rounded-lg p-3 shadow-sm max-h-40 overflow-auto text-sm">
+                    <div className="font-medium text-gray-700 mb-1">Resolved (last 30 days)</div>
+                    <ul className="space-y-1">
+                      {(resolvedThisMonth.slice(0, 5)).map((i:any) => (
+                        <li key={i.id} className="flex items-start justify-between gap-2">
+                          <span className="text-gray-800 line-clamp-1">{i.title}</span>
+                          <span className="text-xs text-gray-500 whitespace-nowrap">{new Date(i.resolvedAt).toLocaleDateString()}</span>
+                        </li>
+                      ))}
+                      {resolvedThisMonth.length === 0 && (
+                        <li className="text-gray-500">No resolved issues this month.</li>
+                      )}
+                    </ul>
+                  </div>
+                )}
+                {stat.title === 'Active Citizens' && (
+                  <div className="mt-2 bg-white/70 border border-gray-200 rounded-lg p-3 shadow-sm max-h-40 overflow-auto text-sm">
+                    <div className="font-medium text-gray-700 mb-1">Top Participants</div>
+                    <ul className="space-y-1">
+                      {(Array.isArray(leaderboard) ? leaderboard : []).slice(0,5).map((u:any) => (
+                        <li key={u.id} className="flex items-center justify-between gap-2">
+                          <span className="text-gray-800 line-clamp-1">{u.user}</span>
+                          <span className="text-xs text-purple-700 bg-purple-100 rounded-full px-2 py-0.5 whitespace-nowrap">{u.points} pts</span>
+                        </li>
+                      ))}
+                      {(!leaderboard || leaderboard.length === 0) && (
+                        <li className="text-gray-500">No active users yet.</li>
+                      )}
+                    </ul>
+                  </div>
+                )}
+                {stat.title === 'Avg Resolution Time' && (
+                  <div className="mt-2 bg-white/70 border border-gray-200 rounded-lg p-3 shadow-sm max-h-40 overflow-auto text-sm">
+                    <div className="font-medium text-gray-700 mb-1">Average: <span className="text-gray-900">{formatDuration(avgResolutionMs)}</span></div>
+                    <ul className="space-y-1">
+                      {resolvedAll.slice(0,5).map((i:any) => {
+                        const dur = new Date(i.resolvedAt).getTime() - new Date(i.createdAt).getTime();
+                        return (
+                          <li key={i.id} className="flex items-start justify-between gap-2">
+                            <span className="text-gray-800 line-clamp-1">{i.title}</span>
+                            <span className="text-xs text-yellow-700 bg-yellow-100 rounded-full px-2 py-0.5 whitespace-nowrap">{formatDuration(dur)}</span>
+                          </li>
+                        );
+                      })}
+                      {resolvedAll.length === 0 && (
+                        <li className="text-gray-500">No resolved issues to compute time.</li>
+                      )}
+                    </ul>
+                  </div>
+                )}
+              </motion.div>
+            ))}
+          </div>
         </div>
 
         {/* Charts Section */}
@@ -187,6 +333,7 @@ const AuthorityDashboard: React.FC = () => {
 
         {/* Recent Issues */}
         <div
+          id="recent-issues"
           className={`bg-white rounded-xl shadow-lg p-6 transform transition-all duration-500 ${
             animateCards ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
           }`}
@@ -194,9 +341,9 @@ const AuthorityDashboard: React.FC = () => {
         >
           <div className="flex items-center justify-between mb-6">
             <h3 className="text-xl font-semibold text-gray-800">Recent Issues</h3>
-            <button className="text-blue-600 hover:text-blue-700 font-medium transition-colors duration-300">
+            <Link to="/all-issues" className="text-blue-600 hover:text-blue-700 font-medium transition-colors duration-300">
               View All Issues
-            </button>
+            </Link>
           </div>
 
           <div className="overflow-x-auto">
@@ -211,7 +358,11 @@ const AuthorityDashboard: React.FC = () => {
                 </tr>
               </thead>
               <tbody>
-                {recentIssues.map((issue, index) => (
+                {(Array.isArray(recentIssues) && recentIssues.length === 0) ? (
+                  <tr>
+                    <td colSpan={5} className="py-4 px-4 text-gray-500 text-center">No recent issues found. (API unavailable or no data)</td>
+                  </tr>
+                ) : (recentIssues || []).map((issue, index) => (
                   <tr
                     key={issue.id}
                     className={`border-b border-gray-100 hover:bg-gray-50 transition-colors duration-200 ${
@@ -333,7 +484,7 @@ const AuthorityDashboard: React.FC = () => {
           <div className="overflow-x-auto">
             <table className="min-w-full text-sm">
               <thead><tr><th>From</th><th>To</th><th>Amount</th><th>Status</th><th>Tx Hash</th><th>Time</th></tr></thead>
-              <tbody>{payments.map(p => <tr key={p.id}><td>{p.from}</td><td>{p.to}</td><td>{p.amount}</td><td>{p.status}</td><td>{p.txHash}</td><td>{new Date(p.timestamp).toLocaleString()}</td></tr>)}</tbody>
+              <tbody>{(Array.isArray(payments) ? payments : []).map(p => <tr key={p.id}><td>{p.from}</td><td>{p.to}</td><td>{p.amount}</td><td>{p.status}</td><td>{p.txHash}</td><td>{new Date(p.timestamp).toLocaleString()}</td></tr>)}</tbody>
             </table>
           </div>
         </section>
@@ -344,42 +495,32 @@ const AuthorityDashboard: React.FC = () => {
           <div className="overflow-x-auto">
             <table className="min-w-full text-sm">
               <thead><tr><th>Type</th><th>Value</th><th>Location</th><th>Status</th><th>Time</th></tr></thead>
-              <tbody>{sensors.map(s => <tr key={s.id}><td>{s.type}</td><td>{s.value}</td><td>{s.location}</td><td>{s.status}</td><td>{new Date(s.timestamp).toLocaleString()}</td></tr>)}</tbody>
+              <tbody>{(Array.isArray(sensors) ? sensors : []).map(s => <tr key={s.id}><td>{s.type}</td><td>{s.value}</td><td>{s.location}</td><td>{s.status}</td><td>{new Date(s.timestamp).toLocaleString()}</td></tr>)}</tbody>
             </table>
           </div>
         </section>
-        {/* Professional Verification and Certification Section */}
-        <section className="my-8 p-6 bg-white rounded shadow">
-          <h2 className="text-2xl font-bold mb-4">Professional Verification & Certification</h2>
-          <p className="mb-2 text-gray-700">Pending professional verifications:</p>
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-sm">
-              <thead><tr><th>Name</th><th>Status</th><th>Action</th></tr></thead>
-              <tbody>{verifications.map(v => <tr key={v.id}><td>{v.name}</td><td>{v.status}</td><td>{v.status === 'pending' && <button className="px-2 py-1 bg-green-500 text-white rounded" onClick={() => handleApprove(v.id)}>Approve</button>}</td></tr>)}</tbody>
-            </table>
-          </div>
-        </section>
+        
         {/* Citizen Engagement: Polls + Leaderboard */}
         <section className="my-8 p-6 bg-white rounded shadow">
           <h2 className="text-2xl font-bold mb-4">Citizen Engagement</h2>
           <div className="grid md:grid-cols-2 gap-6">
             <div>
               <h3 className="font-semibold mb-2">Active Polls</h3>
-              {polls.length === 0 ? (
+              {(Array.isArray(polls) && polls.length === 0) ? (
                 <div className="text-gray-500">No active polls.</div>
               ) : (
-                polls.map((p:any) => (
+                (Array.isArray(polls) ? polls : []).map((p:any) => (
                   <div key={p.id} className="border rounded p-3 mb-3">
                     <div className="font-medium">{p.question}</div>
                     <div className="text-xs text-gray-500">Closes {new Date(p.closesAt).toLocaleString()}</div>
                     <div className="mt-2 space-y-2">
-                      {p.options.map((o:any) => (
+                      {(Array.isArray(p.options) ? p.options : []).map((o:any) => (
                         <button key={o.id} onClick={async ()=>{
                           await api.post(`/polls/${p.id}/vote`, { optionId: o.id });
                           const res = await api.get('/polls');
                           setPolls(res.data);
                         }} className="w-full text-left px-3 py-2 bg-gray-50 hover:bg-gray-100 rounded border">
-                          {o.text} — {o.votes} votes
+                          {o.text}  {o.votes} votes
                         </button>
                       ))}
                     </div>
@@ -390,9 +531,9 @@ const AuthorityDashboard: React.FC = () => {
             <div>
               <h3 className="font-semibold mb-2">Leaderboard</h3>
               <ol className="list-decimal pl-5 text-sm">
-                {leaderboard.map((u:any, idx:number) => (
+                {(Array.isArray(leaderboard) ? leaderboard : []).map((u:any) => (
                   <li key={u.id} className="mb-1">
-                    <span className="font-medium">{u.user}</span> — {u.points} pts <span className="text-gray-500">[{u.badges.join(', ')}]</span>
+                    <span className="font-medium">{u.user}</span>  {u.points} pts <span className="text-gray-500">[{Array.isArray(u.badges) ? u.badges.join(', ') : ''}]</span>
                   </li>
                 ))}
               </ol>
@@ -400,11 +541,10 @@ const AuthorityDashboard: React.FC = () => {
           </div>
         </section>
 
-        {/* Citizen Engagement Features Section */}
+        {/* Citizen Engagement Features */}
         <section className="my-8 p-6 bg-white rounded shadow">
           <h2 className="text-2xl font-bold mb-4">Citizen Engagement Features</h2>
-          <p className="mb-2 text-gray-700">This section will host polls, surveys, and consultations for citizens.</p>
-          <div className="border border-dashed border-gray-300 p-4 rounded text-center text-gray-400">[Polls, Surveys & Consultations UI Coming Soon]</div>
+          <EngagementFeatures includePolls={false} />
         </section>
 
         {/* Map Section */}
@@ -419,8 +559,19 @@ const AuthorityDashboard: React.FC = () => {
             Issue Locations
           </h3>
           <MapWithRealtimeLocation
-            height={320}
-            issues={recentIssues.filter(i => typeof i.lat === 'number' && typeof i.lng === 'number').map(i => ({ id: i.id, title: i.title, lat: i.lat, lng: i.lng }))}
+            height={360}
+            reportPins={reportPins as any}
+            sosPins={sosPins as any}
+            geojsonUrl="/geo/city-zones.geojson"
+            showGeo={true}
+            issues={
+              (!reportPins.length && !sosPins.length
+                ? (Array.isArray(recentIssues) ? recentIssues : [])
+                    .filter(i => typeof i.lat === 'number' && typeof i.lng === 'number')
+                    .map(i => ({ id: i.id, title: i.title, lat: i.lat, lng: i.lng }))
+                : []
+              ) as any
+            }
           />
         </div>
       </div>

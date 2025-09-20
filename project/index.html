@@ -3,11 +3,32 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+  <link rel="manifest" href="/manifest.webmanifest?v=dev" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>CityConnect: Smart City Engagement Platform</title>
+    <script>
+      // Early apply theme & brand to avoid flash of wrong theme
+      (function(){
+        try {
+          var theme = localStorage.getItem('cc-theme') || 'light';
+          var brand = localStorage.getItem('cc-brand') || 'ocean';
+          var root = document.documentElement;
+          if (theme === 'dark') root.setAttribute('data-theme','dark'); else root.removeAttribute('data-theme');
+          root.setAttribute('data-brand', brand);
+        } catch(e) { /* ignore */ }
+      })();
+    </script>
   </head>
   <body>
+    <a href="#main" class="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 bg-white text-blue-700 px-3 py-2 rounded shadow">Skip to content</a>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js').catch(() => {});
+        });
+      }
+    </script>
   </body>
 </html>

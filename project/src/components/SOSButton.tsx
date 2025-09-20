@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Siren, AlertTriangle } from 'lucide-react';
-import { Capacitor } from '@capacitor/core';
-import { Geolocation } from '@capacitor/geolocation';
+import { Capacitor } from '../shims/capacitor-core';
+import { Geolocation } from '../shims/capacitor-geolocation';
 import { auth, rtdb } from './firebase/firebase';
 import { ref as dbRef, push as dbPush, set as dbSet } from 'firebase/database';
 import { useNotifications } from '../contexts/useNotifications';
@@ -15,7 +15,7 @@ const SOSButton: React.FC<{ className?: string }> = ({ className }) => {
   const [sending, setSending] = useState(false);
   const [rippling, setRippling] = useState(false);
   const liveTimer = useRef<ReturnType<typeof setInterval> | null>(null);
-  const { start, stop } = useVoiceSOS('help me');
+  const { start, stop, listening, supported } = useVoiceSOS(['help me', 'helpme', 'help', 'sos']);
   const lastShakeRef = useRef<number>(0);
 
   useEffect(() => {
@@ -155,11 +155,23 @@ const SOSButton: React.FC<{ className?: string }> = ({ className }) => {
 
   return (
     <>
-    <div className="fixed bottom-20 right-5 z-50">
+  <div>
       {/* Ripple effect */}
       {rippling && (
         <span className="absolute inset-0 -m-6 rounded-full bg-red-500/30 animate-ping pointer-events-none" />
       )}
+      {/* Voice SOS status and controls (compact) */}
+      <div className="absolute -top-10 right-0 flex items-center gap-2 text-xs bg-white/90 backdrop-blur rounded-lg px-2 py-1 shadow border">
+        <span className={`inline-flex items-center gap-1 ${supported ? 'text-green-600' : 'text-gray-500'}`}>
+          {supported ? 'Voice SOS' : 'No Voice'}
+        </span>
+        <span className={`px-1 rounded ${listening ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>
+          {listening ? 'Listening' : 'Idle'}
+        </span>
+        <button onClick={() => listening ? stop() : start(() => { sendSOS(); notifyContacts(); })} className="px-2 py-0.5 rounded bg-blue-600 text-white">
+          {listening ? 'Stop' : 'Start'}
+        </button>
+      </div>
       <button
         type="button"
         onClick={() => {
@@ -182,7 +194,7 @@ const SOSButton: React.FC<{ className?: string }> = ({ className }) => {
       >
         {sending ? <AlertTriangle className="w-8 h-8" /> : <Siren className="w-8 h-8" />}
       </button>
-    </div>
+  </div>
     </>
   );
 };

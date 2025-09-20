@@ -5,9 +5,11 @@ import {
   browserLocalPersistence,
   browserSessionPersistence,
   indexedDBLocalPersistence,
-  browserPopupRedirectResolver,
   Auth,
 } from "firebase/auth";
+import { browserPopupRedirectResolver } from "firebase/auth";
+import { cordovaPopupRedirectResolver } from "firebase/auth/cordova";
+import { Capacitor } from '@capacitor/core';
 import { getAnalytics, Analytics } from "firebase/analytics";
 import { initializeFirestore, Firestore } from "firebase/firestore";
 import { getDatabase, Database } from "firebase/database";
@@ -27,10 +29,12 @@ const firebaseConfig = {
 
 // Initialize Firebase
 const app: FirebaseApp = initializeApp(firebaseConfig);
-// Initialize Auth with robust persistence and popup/redirect resolver
+// Initialize Auth with robust persistence and the right resolver for native/file scheme
+const isNativeLike = (Capacitor?.isNativePlatform?.() ?? false) || (typeof window !== 'undefined' && window.location.protocol === 'file:');
+const resolver = isNativeLike ? cordovaPopupRedirectResolver : browserPopupRedirectResolver;
 const auth: Auth = initializeAuth(app, {
   persistence: [indexedDBLocalPersistence, browserLocalPersistence, browserSessionPersistence],
-  popupRedirectResolver: browserPopupRedirectResolver,
+  popupRedirectResolver: resolver,
 });
 // Use long polling so Firestore works behind strict proxies/ISPs
 const db: Firestore = initializeFirestore(app, {

@@ -6,7 +6,10 @@ export type GamificationEvent =
   | 'ISSUE_UPVOTED'
   | 'ISSUE_RESOLVED'
   | 'DAILY_LOGIN'
-  | 'FIRST_REPORT';
+  | 'FIRST_REPORT'
+  | 'GEO_TAGGED_REPORT'
+  | 'GEO_VERIFIED_REPORT'
+  | 'JOB_COMPLETED';
 
 export interface EventAwardResult {
   points: number;
@@ -19,6 +22,9 @@ const EVENT_POINTS: Record<GamificationEvent, number> = {
   ISSUE_RESOLVED: 20,
   DAILY_LOGIN: 5,
   FIRST_REPORT: 25,
+  GEO_TAGGED_REPORT: 5,
+  GEO_VERIFIED_REPORT: 10,
+  JOB_COMPLETED: 15,
 };
 
 const BADGE_THRESHOLDS: { name: string; points: number }[] = [

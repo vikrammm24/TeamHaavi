@@ -1,0 +1,10 @@
+{
+  "name": "CityConnect",
+  "short_name": "CityConnect",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#2563eb",
+  "description": "Smart city engagement: report issues, vote, consult, and track progress.",
+  "icons": []
+}

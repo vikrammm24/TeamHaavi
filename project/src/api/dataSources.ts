@@ -61,6 +61,20 @@ const samples = {
   polls: () => ([
     { id: 'poll1', question: 'Preferred park improvements?', closesAt: Date.now()+86400_000, options: [ { id: 'o1', text: 'Lighting', votes: 12 }, { id: 'o2', text: 'Benches', votes: 8 } ] },
   ]),
+  surveys: () => ([
+    { id: 'survey-1', question: 'How satisfied are you with street lighting in your area?', closesAt: Date.now()+43200_000, options: [
+      { id: 's1', text: 'Very satisfied', count: 5 },
+      { id: 's2', text: 'Somewhat satisfied', count: 9 },
+      { id: 's3', text: 'Needs improvement', count: 14 },
+      { id: 's4', text: 'Poor', count: 6 }
+    ]}
+  ]),
+  consultations: () => ([
+    { id: 'con-1', topic: 'New Park Redevelopment Plan', description: 'Feedback on amenities like jogging track, lighting, and play area upgrades.', comments: [
+      { id: 'c1', name: 'John Smith', message: 'Please add more benches and lighting.', timestamp: Date.now()-7200_000 },
+      { id: 'c2', name: 'Priya', message: 'Include accessible walkways for seniors.', timestamp: Date.now()-3600_000 }
+    ]}
+  ]),
   transport: () => ({
     routes: [ { id: 'r1', name: 'Bus 12', nextArrivals: ['10:15','10:35','10:55'], occupancy: 68, suggestedAction: 'Add one more bus at 11:00' } ],
     smartTicketing: { activeUsers: 245, fraudAttemptsBlocked: 3 }
@@ -171,6 +185,19 @@ export async function fetchPolls() { return safeGet<any[]>('/polls', samples.pol
 export async function fetchTransport() { return safeGet<any>('/transport', samples.transport()); }
 export async function fetchLeaderboard() { return safeGet<any[]>('/gamification/leaderboard', samples.leaderboard()); }
 export async function fetchVerifications() { return safeGet<any[]>('/verifications', samples.verifications()); }
+export async function fetchSurveys() { return safeGet<any[]>('/surveys', samples.surveys()); }
+export async function fetchConsultations() { return safeGet<any[]>('/consultations', samples.consultations()); }
+export async function answerSurvey(surveyId: string, optionId: string) { return safePost<any>(`/surveys/${surveyId}/answer`, { optionId }, {} as any); }
+export async function addConsultationComment(id: string, name: string, message: string) { return safePost<any>(`/consultations/${id}/comments`, { name, message }, {} as any); }
+export async function flagConsultationComment(id: string, commentId: string) { return safePost<any>(`/consultations/${id}/comments/${commentId}/flag`, {}, {} as any); }
+export async function deleteConsultationComment(id: string, commentId: string, role: 'authority'|'professional'='authority') {
+  try {
+    const res = await api.delete(`/consultations/${id}/comments/${commentId}`, { headers: { 'x-role': role } });
+    return res.data;
+  } catch {
+    return {} as any;
+  }
+}
 
 // Local issues storage and merge
 const LOCAL_ISSUES_KEY = 'localIssues';
