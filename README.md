@@ -110,3 +110,4 @@ Unknown user queries are logged to `backend/assistant/unknown.log` to help you i
 This repository does not include a license by default. Add one if you plan to distribute.
 # haavi
 # TeamHaavi
+# TeamHaavi
