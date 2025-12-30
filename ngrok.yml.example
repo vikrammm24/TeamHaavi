@@ -1,0 +1,12 @@
+# Ngrok Configuration Template
+# Copy this to ngrok.yml and replace with your actual authtoken
+
+version: "2"
+authtoken: YOUR_NGROK_AUTHTOKEN_HERE
+tunnels:
+  frontend:
+    addr: 5173
+    proto: http
+  backend:
+    addr: 4000
+    proto: http

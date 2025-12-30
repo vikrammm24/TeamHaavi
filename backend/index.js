@@ -3,6 +3,10 @@ const cors = require('cors');
 const bodyParser = require('body-parser');
 const fs = require('fs');
 const path = require('path');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
+const { body, param, query, validationResult } = require('express-validator');
+require('dotenv').config();
 
 // --- IN-MEMORY STORAGE (for demo purposes) ---
 // Replace this with a database when you have proper config
@@ -125,10 +129,90 @@ function generateId(prefix = "") {
 // --- END IN-MEMORY STORAGE ---
 
 const expressApp = express();
-const PORT = 4000;
+const PORT = process.env.PORT || 4000;
+
+// Security middleware
+expressApp.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      scriptSrc: ["'self'"],
+      imgSrc: ["'self'", "data:", "https:"],
+      connectSrc: ["'self'"],
+      fontSrc: ["'self'"],
+      objectSrc: ["'none'"],
+      mediaSrc: ["'self'"],
+      frameSrc: ["'none'"],
+    },
+  },
+  crossOriginEmbedderPolicy: false,
+}));
+
+// Rate limiting to prevent DoS attacks
+const limiter = rateLimit({
+  windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000, // 15 minutes
+  max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 100, // limit each IP to 100 requests per windowMs
+  message: 'Too many requests from this IP, please try again later.',
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+expressApp.use('/api/', limiter);
+
+// Manual NoSQL injection prevention middleware
+expressApp.use((req, res, next) => {
+  const sanitizeValue = (value) => {
+    if (typeof value === 'object' && value !== null) {
+      if (Array.isArray(value)) {
+        return value.map(sanitizeValue);
+      }
+      const sanitized = {};
+      for (const key in value) {
+        // Remove keys that start with $ or contain .
+        if (!key.startsWith('$') && !key.includes('.')) {
+          sanitized[key] = sanitizeValue(value[key]);
+        }
+      }
+      return sanitized;
+    }
+    return value;
+  };
+
+  if (req.body) {
+    req.body = sanitizeValue(req.body);
+  }
+  if (req.query) {
+    req.query = sanitizeValue(req.query);
+  }
+  if (req.params) {
+    req.params = sanitizeValue(req.params);
+  }
+  next();
+});
 
 expressApp.use(cors());
 expressApp.use(bodyParser.json({ limit: '2mb' }));
+
+// Input validation helper
+const handleValidationErrors = (req, res, next) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ error: 'Validation failed', details: errors.array() });
+  }
+  next();
+};
+
+// Helper to sanitize HTML content
+const sanitizeHtml = (dirty) => {
+  if (typeof dirty !== 'string') return dirty;
+  // Basic HTML sanitization - remove script tags and event handlers
+  return dirty
+    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+    .replace(/on\w+\s*=\s*"[^"]*"/gi, '')
+    .replace(/on\w+\s*=\s*'[^']*'/gi, '')
+    .replace(/javascript:/gi, '');
+};
 
 // Simple role extraction from headers for demo moderation
 function requireRole(allowedRoles = []) {
@@ -259,22 +343,30 @@ expressApp.get('/api/issues', async (req, res) => {
   }
 });
 
-expressApp.post('/api/issues', async (req, res) => {
+expressApp.post('/api/issues',
+  [
+    body('title').isString().trim().isLength({ min: 3, max: 200 }).withMessage('Title must be 3-200 characters'),
+    body('description').isString().trim().isLength({ min: 10, max: 2000 }).withMessage('Description must be 10-2000 characters'),
+    body('category').isString().trim().isIn(['infrastructure', 'transportation', 'utilities', 'environment', 'safety', 'other']).withMessage('Invalid category'),
+    body('priority').isString().trim().isIn(['low', 'medium', 'high', 'critical']).withMessage('Invalid priority'),
+    body('location').optional().isString().trim(),
+    body('address').optional().isString().trim().isLength({ max: 300 }),
+    body('photos').optional().isArray(),
+    handleValidationErrors,
+  ],
+  async (req, res) => {
   try {
-    const { title, description, category, priority, location, address, photos } = req.body || {};
-    if (!title || !description || !category || !priority) {
-      return res.status(400).json({ error: 'title, description, category, and priority are required' });
-    }
+    const { title, description, category, priority, location, address, photos } = req.body;
     const id = generateId('issue-');
     const issue = {
       id,
-      title,
-      description,
+      title: sanitizeHtml(title),
+      description: sanitizeHtml(description),
       category,
       priority,
       location: location || '',
-      address: address || '',
-      photos: Array.isArray(photos) ? photos : [],
+      address: sanitizeHtml(address || ''),
+      photos: Array.isArray(photos) ? photos.slice(0, 5) : [], // Limit to 5 photos
       status: 'pending',
       createdAt: Date.now()
     };
@@ -502,16 +594,25 @@ expressApp.get('/api/consultations', async (req, res) => {
   }
 });
 
-expressApp.post('/api/consultations/:id/comments', async (req, res) => {
+expressApp.post('/api/consultations/:id/comments',
+  [
+    param('id').isString().trim(),
+    body('name').optional().isString().trim().isLength({ max: 100 }),
+    body('message').isString().trim().isLength({ min: 1, max: 1000 }).withMessage('Message must be 1-1000 characters'),
+    handleValidationErrors,
+  ],
+  async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, message } = req.body || {};
-    if (!message || String(message).trim().length === 0) {
-      return res.status(400).json({ error: 'message is required' });
-    }
-  const con = consultations.find(c => c.id === id);
+    const { name, message } = req.body;
+    const con = consultations.find(c => c.id === id);
     if (!con) return res.status(404).json({ error: 'Consultation not found' });
-    const cmt = { id: generateId('cmt-'), name: name || 'Anonymous', message: String(message).slice(0, 1000), timestamp: Date.now() };
+    const cmt = { 
+      id: generateId('cmt-'), 
+      name: sanitizeHtml(name || 'Anonymous'), 
+      message: sanitizeHtml(message), 
+      timestamp: Date.now() 
+    };
     con.comments.push(cmt);
     res.status(201).json(cmt);
   } catch (e) {
@@ -570,16 +671,22 @@ expressApp.get('/api/emergency-broadcasts/active', async (req, res) => {
   }
 });
 
-expressApp.post('/api/emergency-broadcasts', async (req, res) => {
+expressApp.post('/api/emergency-broadcasts',
+  [
+    body('message').isString().trim().isLength({ min: 10, max: 500 }).withMessage('Message must be 10-500 characters'),
+    body('severity').optional().isString().isIn(['info', 'warning', 'high', 'critical']),
+    body('ttlMinutes').optional().isInt({ min: 1, max: 1440 }).withMessage('TTL must be 1-1440 minutes'),
+    handleValidationErrors,
+  ],
+  async (req, res) => {
   try {
-    const { message, severity = 'info', ttlMinutes = 120 } = req.body || {};
-    if (!message) return res.status(400).json({ error: 'message is required' });
+    const { message, severity = 'info', ttlMinutes = 120 } = req.body;
     // deactivate previous active
     broadcasts = broadcasts.map(b => ({ ...b, active: false }));
     const id = generateId('b-');
     const createdAt = Date.now();
     const expiresAt = createdAt + ttlMinutes * 60 * 1000;
-    const broadcast = { id, message, severity, active: true, createdAt, expiresAt };
+    const broadcast = { id, message: sanitizeHtml(message), severity, active: true, createdAt, expiresAt };
     broadcasts.unshift(broadcast);
     res.status(201).json(broadcast);
   } catch (e) {
@@ -815,19 +922,26 @@ expressApp.post('/api/assistant/kb', (req, res) => {
 
 // Quick teach endpoint for a single Q/A
 // Body: { question: string, answer: string, language?: string, topic?: string }
-expressApp.post('/api/assistant/teach', (req, res) => {
+expressApp.post('/api/assistant/teach',
+  [
+    body('question').isString().trim().isLength({ min: 3, max: 200 }).withMessage('Question must be 3-200 characters'),
+    body('answer').isString().trim().isLength({ min: 3, max: 1000 }).withMessage('Answer must be 3-1000 characters'),
+    body('language').optional().isString().isIn(ASSISTANT_LANGS),
+    body('topic').optional().isString().trim().isLength({ max: 50 }),
+    handleValidationErrors,
+  ],
+  (req, res) => {
   try {
-    const { question, answer, language = 'en', topic = 'custom' } = req.body || {};
-    if (!question || !answer) return res.status(400).json({ error: 'question and answer are required' });
+    const { question, answer, language = 'en', topic = 'custom' } = req.body;
     const lang = ASSISTANT_LANGS.includes(language) ? language : 'en';
     const entry = externalKB.find(e => e.topic === topic);
     const pattern = escapeRegex(String(question).trim());
     if (entry) {
       entry.patterns = Array.from(new Set([...(entry.patterns || []), pattern]));
       entry._patterns = entry.patterns.map(p => new RegExp(p, 'i'));
-      entry.answers = { ...(entry.answers || {}), [lang]: String(answer) };
+      entry.answers = { ...(entry.answers || {}), [lang]: sanitizeHtml(String(answer)) };
     } else {
-      externalKB.push({ topic, patterns: [pattern], answers: { [lang]: String(answer) }, _patterns: [new RegExp(pattern, 'i')] });
+      externalKB.push({ topic, patterns: [pattern], answers: { [lang]: sanitizeHtml(String(answer)) }, _patterns: [new RegExp(pattern, 'i')] });
     }
     saveExternalKB();
     res.status(201).json({ ok: true });
@@ -864,14 +978,18 @@ expressApp.post('/api/vision/classify', async (req, res) => {
 });
 
 // --- Directory: basic CRUD additions for pros/citizens (from previous) ---
-expressApp.post('/api/professionals', async (req, res) => {
+expressApp.post('/api/professionals',
+  [
+    body('name').isString().trim().isLength({ min: 2, max: 100 }).withMessage('Name must be 2-100 characters'),
+    body('skills').isArray({ min: 1 }).withMessage('At least one skill is required'),
+    body('skills.*').isString().trim().isLength({ min: 2, max: 50 }),
+    handleValidationErrors,
+  ],
+  async (req, res) => {
   try {
     const { name, skills } = req.body;
-    if (!name || !skills) {
-      return res.status(400).json({ error: 'Name and skills are required' });
-    }
     const id = generateId('pro-');
-    const professional = { id, name, skills };
+    const professional = { id, name: sanitizeHtml(name), skills: skills.map(s => sanitizeHtml(s)) };
     professionals.push(professional);
     res.status(201).json(professional);
   } catch (error) {
@@ -879,14 +997,18 @@ expressApp.post('/api/professionals', async (req, res) => {
   }
 });
 
-expressApp.post('/api/citizens', async (req, res) => {
+expressApp.post('/api/citizens',
+  [
+    body('name').isString().trim().isLength({ min: 2, max: 100 }).withMessage('Name must be 2-100 characters'),
+    body('needs').isArray({ min: 1 }).withMessage('At least one need is required'),
+    body('needs.*').isString().trim().isLength({ min: 2, max: 50 }),
+    handleValidationErrors,
+  ],
+  async (req, res) => {
   try {
     const { name, needs } = req.body;
-    if (!name || !needs) {
-      return res.status(400).json({ error: 'Name and needs are required' });
-    }
     const id = generateId('cit-');
-    const citizen = { id, name, needs };
+    const citizen = { id, name: sanitizeHtml(name), needs: needs.map(n => sanitizeHtml(n)) };
     citizens.push(citizen);
     res.status(201).json(citizen);
   } catch (error) {
