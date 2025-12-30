@@ -36,13 +36,19 @@ Sensitive configuration data (API keys, tokens, database credentials) are stored
   - Array sizes
 
 #### XSS Protection
-- HTML content is sanitized to prevent cross-site scripting attacks
-- Script tags and event handlers are stripped from user input
+- Production-grade HTML sanitization using DOMPurify
+- All HTML tags and dangerous content stripped from user input
+- Protection against:
+  - Script injection
+  - Event handler injection
+  - Protocol-based attacks (javascript:, data:, vbscript:)
+  - Nested/obfuscated XSS attempts
 - Input sanitization applied to all user-generated content
 
 #### NoSQL Injection Protection
-- express-mongo-sanitize removes keys that start with '$' or contain '.'
-- Prevents NoSQL injection attacks
+- Custom middleware removes dangerous keys ($ prefix, . characters)
+- Prevents NoSQL injection attacks on in-memory data structures
+- Applied to request body, query parameters, and URL parameters
 
 #### Security Headers
 - Helmet.js configures secure HTTP headers:

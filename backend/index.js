@@ -6,7 +6,13 @@ const path = require('path');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const { body, param, query, validationResult } = require('express-validator');
+const { JSDOM } = require('jsdom');
+const createDOMPurify = require('dompurify');
 require('dotenv').config();
+
+// Initialize DOMPurify with JSDOM window
+const window = new JSDOM('').window;
+const DOMPurify = createDOMPurify(window);
 
 // --- IN-MEMORY STORAGE (for demo purposes) ---
 // Replace this with a database when you have proper config
@@ -203,15 +209,12 @@ const handleValidationErrors = (req, res, next) => {
   next();
 };
 
-// Helper to sanitize HTML content
+// Helper to sanitize HTML content - using DOMPurify for production-grade XSS prevention
 const sanitizeHtml = (dirty) => {
   if (typeof dirty !== 'string') return dirty;
-  // Basic HTML sanitization - remove script tags and event handlers
-  return dirty
-    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
-    .replace(/on\w+\s*=\s*"[^"]*"/gi, '')
-    .replace(/on\w+\s*=\s*'[^']*'/gi, '')
-    .replace(/javascript:/gi, '');
+  // DOMPurify removes all potentially dangerous HTML/scripts while preserving safe text
+  // ALLOWED_TAGS: [] means strip all HTML tags, keeping only text content
+  return DOMPurify.sanitize(dirty, { ALLOWED_TAGS: [] });
 };
 
 // Simple role extraction from headers for demo moderation
