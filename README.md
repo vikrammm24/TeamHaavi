@@ -63,6 +63,44 @@ VITE_API_BASE=http://localhost:4000 npm run dev
 ```
 - Firebase: the SDK is available in web/mobile; ensure your Firebase config is supplied where required for auth/RTDB features.
 
+## Security
+
+CityConnect implements comprehensive security measures:
+
+- **Environment Variables**: Sensitive data (API keys, tokens) stored in `.env` files (not committed)
+- **Input Validation**: All API endpoints validate and sanitize user input
+- **Rate Limiting**: Protection against DoS attacks (100 req/15min per IP)
+- **XSS Protection**: HTML sanitization to prevent cross-site scripting
+- **NoSQL Injection Protection**: Input sanitization for database queries
+- **Security Headers**: Helmet.js for secure HTTP headers
+- **Role-Based Access Control**: Protected endpoints for sensitive operations
+
+### Setup for Development
+
+1. **Backend Environment**:
+   ```bash
+   cd backend
+   cp .env.example .env
+   # Edit .env with your values
+   ```
+
+2. **Frontend Environment**:
+   ```bash
+   cd project
+   cp .env.example .env
+   # Add your Firebase configuration
+   ```
+
+3. **ngrok (optional)**:
+   ```bash
+   cp ngrok.yml.example ngrok.yml
+   # Add your ngrok authtoken
+   ```
+
+**Important**: Never commit `.env` files or `ngrok.yml` to version control.
+
+For more details, see [SECURITY.md](./SECURITY.md).
+
 ## Assistant: Training & Knowledge Base
 The assistant supports an external JSON knowledge base at `backend/assistant/kb.json`. You can teach it at runtime via REST endpoints (no redeploy needed).
 
